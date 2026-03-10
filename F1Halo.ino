@@ -5,6 +5,7 @@ const int DRIVERS_NUMBER = 22;
 // add language switcher to wifi setup screen
 // settings: add UTC offset modifier (for people using VPN or anyways if WiFi detection goes crazy)
 // settings: make user decide if they want to see drivers standings, constructors or both one after the other in the main page (select tool)
+// settings: add bool switch to control if tabs should be switched to news when a new article is fetched
 
 #define DISPLAY_TYPE DISPLAY_CYD_543
 #define TOUCH_CAPACITIVE

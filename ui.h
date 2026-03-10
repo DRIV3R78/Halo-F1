@@ -1197,7 +1197,7 @@ void create_or_reload_news_ui(lv_timer_t *timer) {
     if (notifyNewArticle) {
         Serial.println("Article Link is new, running notification routine for new article fetched.");
         playNotificationSound();
-        lv_obj_scroll_to_view_recursive(cont, true);
+        //lv_tabview_set_active(home_tabs, 1, LV_ANIM_ON); // switch to article tab -- place under a bool switch in settings
     }
 }
 
