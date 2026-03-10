@@ -341,8 +341,6 @@ uint32_t get_team_color(String team) {
   if (team == "haas") return 0xFFFFFF; //0x9C9FA2;
   if (team == "audi") return 0xFF3300;
 
-  // missing audi
-
   return 0x333333;
 }
 
