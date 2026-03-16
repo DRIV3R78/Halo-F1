@@ -9,8 +9,6 @@ const int DRIVERS_NUMBER = 22;
 // settings: make user decide if they want to see drivers standings, constructors or both one after the other in the main page (select tool)
 // settings: add bool switch to control if tabs should be switched to news when a new article is fetched
 
-// WIP 1.1: add Portuguese language, add no spoiler mode --> ADD reset when switch from off to on in settings, check sprint qualy results timings, check why settings separator causes tab to crash
-
 #define DISPLAY_TYPE DISPLAY_CYD_543
 #define TOUCH_CAPACITIVE
 #define TOUCH_SDA 8
@@ -29,9 +27,9 @@ const int DRIVERS_NUMBER = 22;
 #define SCREEN_HEIGHT 480
 
 #ifdef TOUCH_CAPACITIVE
-const String fw_version = "1.0.1";
+const String fw_version = "1.1.0";
 #else
-const String fw_version = "1.0.1-R";
+const String fw_version = "1.1.0-R";
 #endif
 
 

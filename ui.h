@@ -386,7 +386,8 @@ void animate_standings(lv_obj_t * container) {
     });
     lv_anim_set_path_cb(&a, lv_anim_path_ease_in);
 
-    lv_anim_set_deleted_cb(&a, [](lv_anim_t * a) {
+    //lv_anim_set_deleted_cb(&a, [](lv_anim_t * a) {
+    lv_anim_set_completed_cb(&a, [](lv_anim_t * a) {
         //Serial.println("Container faded out, cleaning container");
 
         lv_obj_t * cont = (lv_obj_t *)a->user_data;
@@ -473,7 +474,8 @@ void animate_results(lv_obj_t * container) {
     });
     lv_anim_set_path_cb(&a, lv_anim_path_ease_in);
 
-    lv_anim_set_deleted_cb(&a, [](lv_anim_t * a) {
+    //lv_anim_set_deleted_cb(&a, [](lv_anim_t * a) {
+    lv_anim_set_completed_cb(&a, [](lv_anim_t * a) {
         //Serial.println("Container faded out, cleaning container");
 
         lv_obj_t * cont = (lv_obj_t *)a->user_data;
@@ -872,6 +874,10 @@ lv_obj_t * create_settings_divider(lv_obj_t *parent, const char *title = nullptr
 // Replaces standings_container content with a spoiler-proof button.
 // wasStandings: true = hiding championship standings, false = hiding session results.
 void show_spoiler_button(lv_obj_t *container, bool wasStandings) {
+    // Cancel any running fade animation and standing timer before touching the container
+    lv_anim_del(&style_fade, NULL);
+    if (standings_ui_timer) { lv_timer_del(standings_ui_timer); standings_ui_timer = NULL; }
+
     // Record what we are hiding so the button callback knows what to restore
     noSpoilerWasStandings      = wasStandings;
     noSpoilerLastKnownSession  = wasStandings ? "" : current_results; // standings have no session name
@@ -908,24 +914,31 @@ void show_spoiler_button(lv_obj_t *container, bool wasStandings) {
     lv_obj_set_style_text_font(lbl, &montserrat_14, 0);
 
     lv_obj_add_event_cb(btn, [](lv_event_t *e) {
+        // Set state flags immediately while btn is still alive
         noSpoilerLifted           = true;
         noSpoilerLiftedForSession = noSpoilerLastKnownSession;
 
-        lv_obj_clean(standings_container);
+        // Defer all UI manipulation — calling lv_obj_clean on an ancestor from
+        // within a descendant's event callback causes a double-free in LVGL 9.
+        // lv_async_call runs after the current event dispatch fully completes.
+        lv_async_call([](void *) {
+            if (!noSpoilerLifted) return;  // settings were changed before this ran — abort
+            lv_anim_del(&style_fade, NULL);
+            if (standings_ui_timer) { lv_timer_del(standings_ui_timer); standings_ui_timer = NULL; }
+            lv_obj_clean(standings_container);
 
-        if (noSpoilerWasStandings) {
-            populate_standings(standings_container, 0);
-            if (standings_ui_timer) lv_timer_del(standings_ui_timer);
-            standings_ui_timer = lv_timer_create([](lv_timer_t *t) {
-                animate_standings((lv_obj_t *)lv_timer_get_user_data(t));
-            }, 15000, standings_container);
-        } else {
-            populate_results(standings_container, 0);
-            if (standings_ui_timer) lv_timer_del(standings_ui_timer);
-            standings_ui_timer = lv_timer_create([](lv_timer_t *t) {
-                animate_results((lv_obj_t *)lv_timer_get_user_data(t));
-            }, 15000, standings_container);
-        }
+            if (noSpoilerWasStandings) {
+                populate_standings(standings_container, 0);
+                standings_ui_timer = lv_timer_create([](lv_timer_t *t) {
+                    animate_standings((lv_obj_t *)lv_timer_get_user_data(t));
+                }, 15000, standings_container);
+            } else {
+                populate_results(standings_container, 0);
+                standings_ui_timer = lv_timer_create([](lv_timer_t *t) {
+                    animate_results((lv_obj_t *)lv_timer_get_user_data(t));
+                }, 15000, standings_container);
+            }
+        }, nullptr);
     }, LV_EVENT_CLICKED, nullptr);
 }
 
@@ -1023,8 +1036,8 @@ void create_or_reload_race_sessions(bool force_reload) {
   if (!hasRaceWeekendStarted() && (force_reload || millis() > last_checked_session_results + check_delay)) {
       last_checked_session_results = millis();
 
-      if (standings_ui_timer) lv_timer_del(standings_ui_timer);
-      lv_anim_del(standings_container, NULL);
+      if (standings_ui_timer) { lv_timer_del(standings_ui_timer); standings_ui_timer = NULL; }
+      lv_anim_del(&style_fade, NULL); //was standings_container
       lv_obj_clean(standings_container);
 
       if (noSpoilerModeActive && !noSpoilerLifted) {
@@ -1058,7 +1071,7 @@ void create_or_reload_race_sessions(bool force_reload) {
       check_delay = 5 * 60000; //every 5 minutes
       if (standings_ui_timer) lv_timer_del(standings_ui_timer);
       standings_ui_timer = NULL;
-      lv_anim_del(standings_container, NULL);
+      lv_anim_del(&style_fade, NULL); //was standings_container
       lv_obj_clean(standings_container);
       return;
     } 
@@ -1070,7 +1083,7 @@ void create_or_reload_race_sessions(bool force_reload) {
       // clean container
       if (standings_ui_timer) lv_timer_del(standings_ui_timer);
       standings_ui_timer = NULL;
-      lv_anim_del(standings_container, NULL);
+      lv_anim_del(&style_fade, NULL); //was standings_container
       lv_obj_clean(standings_container);
 
       Serial.println("Running Results API Check");
@@ -1112,7 +1125,7 @@ void create_or_reload_race_sessions(bool force_reload) {
 
   if (standings_ui_timer) lv_timer_del(standings_ui_timer);
   standings_ui_timer = NULL;
-  lv_anim_del(standings_container, NULL);
+  lv_anim_del(&style_fade, NULL); //was standings_container
   lv_obj_clean(standings_container);
 
   Serial.println("Running Results API Check");
@@ -1130,7 +1143,7 @@ void create_or_reload_race_sessions(bool force_reload) {
     // clean container
     if (standings_ui_timer) lv_timer_del(standings_ui_timer);
     standings_ui_timer = NULL;
-    lv_anim_del(standings_container, NULL);
+    lv_anim_del(&style_fade, NULL); //was standings_container
     lv_obj_clean(standings_container);
 
     // show Race Grid when available
@@ -1154,7 +1167,7 @@ void create_or_reload_race_ui() {
   Serial.println("Creating or Reloading Race UI...");
   lv_anim_del(tabs.race, NULL);
   lv_anim_del(sessions_container, NULL);
-  lv_anim_del(standings_container, NULL);
+  lv_anim_del(&style_fade, NULL); //was standings_container
 
   lv_obj_clean(tabs.race);
 
