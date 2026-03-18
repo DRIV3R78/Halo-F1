@@ -15,7 +15,7 @@ The pre-compiled firmware is free to install from the [project website](https://
 - **Session Results** — Qualifying (Q1/Q2/Q3) and race results fetched from the live OpenF1 API, including gap to leader
 - **Latest News** — F1 headlines pulled from an RSS feed (currently English only)
 - **Night Mode** — Configurable dimming window; set start/stop times and a separate night brightness level
-- **7 Languages** — English, Italian, Spanish, French, Dutch, German, Norwegian
+- **8 Languages** — English, Italian, Spanish, French, Dutch, German, Portuguese, Norwegian
 - **Captive-portal Wi-Fi setup** — On first boot the device broadcasts an access point (`Halo-F1`); connect from any phone or laptop to enter your home network credentials. No app or computer required after initial flashing
 - **Update notifications** — The device checks for new firmware versions on startup and shows an in-app notification if an update is available
 
@@ -59,12 +59,12 @@ If you want to compile from source, see the [Building from Source](#building-fro
 Install the following through the Library Manager (Sketch → Include Library → Manage Libraries).
 **IMPORTANT:** This project has been developed over an extended period of time, libraries used in it might have introduced breaking changes in latest updates. To ensure full compatibility please make sure to download the correct versions where indicated
 
-| Library       | Author          |
-| ------------- | --------------- |
-| `LVGL v9.3`        | LVGL            |
-| `WiFiManager` | tzapu           |
-| `ArduinoJson` | Benoit Blanchon |
-| `bb_spi_lcd v2.7.1`  | Larry Bank      |
+| Library             | Author          |
+| ------------------- | --------------- |
+| `LVGL v9.3`         | LVGL            |
+| `WiFiManager`       | tzapu           |
+| `ArduinoJson`       | Benoit Blanchon |
+| `bb_spi_lcd v2.7.1` | Larry Bank      |
 
 > **Note:** `lv_conf.h` must be configured for the JC4827W543 display before compiling. The `lv_conf.h` included in this repository is already set up correctly.
 
@@ -131,7 +131,7 @@ No personal data, Wi-Fi credentials, location or network information is ever tra
 F1Halo.ino            — Main sketch: hardware initialisation, setup(), loop()
 ui.h                  — LVGL UI construction and all event handlers
 wifi_handler.h        — Wi-Fi setup, all API fetch functions, statistics ping
-localized_strings.h   — Translated string tables for all 7 supported languages
+localized_strings.h   — Translated string tables for all 8 supported languages
 utils.h               — Utility functions (UUID generation, time helpers, etc.)
 notifications.h       — In-app notification queue and scheduler
 audio.h               — Sound playback via I²S (in the works)
@@ -144,9 +144,9 @@ lv_conf.h             — LVGL configuration tuned for the JC4827W543 display
 
 ## Future Developments
 
-- [X] No spoiler mode
+- [x] No spoiler mode
 - [ ] Audio notifications when a new article is fetched
-  - [X] Library inclusion and set up
+  - [x] Library inclusion and set up
   - [ ] Exclude sound during night times
   - [ ] Add Menu config option
   - [ ] 3D Case rework to fit speaker
