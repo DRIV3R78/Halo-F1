@@ -408,7 +408,7 @@ const LanguageStrings language_strings_pt PROGMEM = {
 
 const LanguageStrings language_strings_no PROGMEM = {
   {"Januar", "Februar", "Mars", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Desember"},
-  {"Jan", "Feb", "Mar", "Apr", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Des"},
+  {"Jan", "Feb", "Mar", "Apr", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Des"},
   {"Søndag", "Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag"},
   {"Søn", "Man", "Tir", "Ons", "Tor", "Fre", "Lør"},
   "Laster inn WiFi-tilgang...",
