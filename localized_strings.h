@@ -457,6 +457,57 @@ const LanguageStrings language_strings_no PROGMEM = {
   "Skjerm",
 };
 
+const LanguageStrings language_strings_pl PROGMEM = {
+  {"Stycznia", "Lutego", "Marca", "Kwietnia", "Maja", "Czerwca", "Lipca", "Sierpnia", "Września", "Października", "Listopada", "Grudnia"},
+  {"Sty", "Lut", "Mar", "Kwi", "Maj", "Cze", "Sie", "Wrz", "Paź", "Lis", "Gru"},
+  {"Niedziela", "Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota"},
+  {"Niedz.", "Pon.", "Wt.", "Śr.", "Czw.", "Pt.", "Sb."},
+  "Łączenie z WiFi...",
+  "Połączono z WiFi!",
+  "Nie udało się połączyć z WiFi, podłącz się do sieci \"Halo-F1\" ze swojego telefonu i wprowadź nazwę sieci oraz hasło.",
+  "OK",
+  "Tak",
+  "Nie",
+  "Zamknij",
+  "Anuluj",
+  "Powodzenie",
+  "Niepowodzenie",
+  "Zaktualizuj zegar",
+  "Zegar został zaktualizowany!",
+  "FP1",
+  "FP2",
+  "FP3",
+  "Kwalifikacje",
+  "Q1",
+  "Q2",
+  "Q3",
+  "Wyścig",
+  "Sprint",
+  "Kwalifikacje do Sprintu",
+  "Sesja treningowa",
+  "Sesja treningowa 1",
+  "Sesja treningowa 2",
+  "Sesja treningowa 3",
+  "Nadchodzące Grand Prix",
+  "Nadchodząca Sesja",
+  "Weekend Sprinterski",
+  "TABELA KIEROWCÓW",
+  "TABELA ZESPOŁÓW",
+  "Skanuj Aby Przeczytać",
+  "Skanuj Aby Otworzyć",
+  "Język",
+  "Polski",
+  "Polish",
+  "Jasność Ekranu",
+  "Tryb Nocny",
+  "Jasność Trybu Nocnego",
+  "Dostępna Aktualizacja!",
+  "Tryb Bez Spojlerów",
+  "Dostępne Nowe Wyniki",
+  "Pokaż Wyniki",
+  "Wyświetlacz",
+};
+
 uint32_t get_team_color(String team) {
   // maybe use a switch case
   if (team == "mercedes") return 0x00D7B6;
@@ -489,6 +540,7 @@ const LanguageEntry languages[] = {
     {"Deutsch",   &language_strings_de},
     {"Português", &language_strings_pt},
     {"Norsk", &language_strings_no},
+    {"Polski", &language_strings_pl},
 };
 
 const size_t languageCount = sizeof(languages) / sizeof(languages[0]);
