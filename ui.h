@@ -92,6 +92,44 @@ static void no_spoiler_switch_handler(lv_event_t * e) {
     //update_ui(nullptr); //maybe add if condition to only update if we're potentially exposed to spoilers?
 }
 
+
+static void timezone_roller_event_handler(lv_event_t * e) {
+    if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
+    if (!timezoneOverrideActive) return;
+    if (!timezoneRoller.hours) return;
+
+    // Get current UTC from NTP
+    struct tm utcTime;
+    if (!getLocalTime(&utcTime)) return;
+
+    int utc_total_minutes = utcTime.tm_hour * 60 + utcTime.tm_min;
+
+    // Read roller (local time the user set)
+    int32_t local_h = (int32_t)lv_roller_get_selected(timezoneRoller.hours);
+    int local_total_minutes = local_h * 60 + utcTime.tm_min;
+
+    // Compute offset with wraparound handling
+    int offset_minutes = local_total_minutes - utc_total_minutes;
+    if (offset_minutes >  720) offset_minutes -= 1440; // > +12h → wrap negative
+    if (offset_minutes < -720) offset_minutes += 1440; // < -12h → wrap positive
+
+    UTCoffsetHours   = offset_minutes / 60;
+    //UTCoffsetMinutes = offset_minutes % 60;
+    UTCoffset        = (long)offset_minutes * 60;
+}
+
+static void timezone_override_switch_handler(lv_event_t * e) {
+    lv_obj_t* sw = (lv_obj_t*)lv_event_get_target(e);
+    timezoneOverrideActive = lv_obj_has_state(sw, LV_STATE_CHECKED);
+
+    if (!timezoneOverrideActive) {
+        // Re-fetch from ipapi so we snap back to real offset
+        UTCoffset = getUtcOffsetInSeconds();
+    }
+    // If activating: rollers already reflect current UTCoffset (set during creation),
+    // so we just stop future ipapi calls from overwriting.
+}
+
 static void night_mode_switch_handler(lv_event_t * e) {
     lv_obj_t * sw = (lv_obj_t *) lv_event_get_target(e);
 
@@ -785,6 +823,60 @@ lv_obj_t * create_settings_divider(lv_obj_t *parent, const char *title = nullptr
     return wrapper;
 }
 
+lv_obj_t * create_timezone_roller(lv_obj_t *parent, const char *icon, const char *text) {
+    lv_obj_t * obj = create_text(parent, icon, text, 1);
+
+    timezone_override_switch = lv_switch_create(obj);
+    halo_set_switch_state(timezone_override_switch, timezoneOverrideActive);
+
+    lv_obj_add_event_cb(timezone_override_switch, timezone_override_switch_handler, LV_EVENT_VALUE_CHANGED, NULL);
+
+    // Compute current local time to pre-populate rollers
+    struct tm utcTime;
+    getLocalTime(&utcTime);
+    time_t epoch = timegm(&utcTime);
+    epoch += UTCoffset;
+    struct tm localTime;
+    gmtime_r(&epoch, &localTime);
+
+    // Hours roller
+    timezoneRoller.hours = lv_roller_create(obj);
+    lv_obj_set_width(timezoneRoller.hours, LV_PCT(100));
+    lv_obj_add_flag(timezoneRoller.hours, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
+    lv_roller_set_options(timezoneRoller.hours,
+        "00\n01\n02\n03\n04\n05\n06\n07\n08\n09\n10\n11"
+        "\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23",
+        LV_ROLLER_MODE_INFINITE);
+    lv_roller_set_visible_row_count(timezoneRoller.hours, 2);
+    lv_roller_set_selected(timezoneRoller.hours, localTime.tm_hour, LV_ANIM_OFF);
+
+    lv_obj_add_event_cb(timezoneRoller.hours, timezone_roller_event_handler, LV_EVENT_ALL, NULL);
+
+    return obj;
+}
+
+lv_obj_t * create_button(lv_obj_t *parent, const char *icon, const char *text, lv_event_cb_t event_handler) {
+    lv_obj_t * btn = lv_btn_create(parent);
+    lv_obj_set_style_bg_color(btn, lv_color_hex(HALO_COLOR_RED), 0);
+    lv_obj_set_size(btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+
+    if (icon) {
+        lv_obj_t * img = lv_img_create(btn);
+        lv_img_set_src(img, icon);
+    }
+
+    if (text) {
+        lv_obj_t * lbl = lv_label_create(btn);
+        lv_label_set_text(lbl, text);
+        lv_obj_set_style_text_font(lbl, &montserrat_14, 0);
+    }
+
+    if (event_handler) {
+        lv_obj_add_event_cb(btn, event_handler, LV_EVENT_CLICKED, NULL);
+    }
+
+    return btn;
+}
 
 // Replaces standings_container content with a spoiler-proof button.
 // wasStandings: true = hiding championship standings, false = hiding session results.
@@ -1338,6 +1430,9 @@ void create_or_reload_news_ui(lv_timer_t *timer) {
 void create_or_reload_settings_ui() {
   lv_obj_clean(tabs.settings);
 
+  timezoneRoller = {nullptr, nullptr};
+  timezone_override_switch = nullptr;
+
   lv_obj_t *cont = lv_obj_create(tabs.settings);
   lv_obj_remove_style_all(cont);
   lv_obj_set_size(cont, LV_PCT(100), LV_PCT(100)); //LV_SIZE_CONTENT
@@ -1365,6 +1460,10 @@ void create_or_reload_settings_ui() {
   no_spoiler_switch = create_switch(cont, LV_SYMBOL_WARNING, localized_text->no_spoiler_mode, noSpoilerModeActive);
   lv_obj_add_event_cb(no_spoiler_switch, no_spoiler_switch_handler, LV_EVENT_VALUE_CHANGED, NULL);
 
+  // -- Timezone Settings --
+  create_settings_divider(cont, localized_text->time_settings);
+  create_timezone_roller(cont, LV_SYMBOL_LOOP, localized_text->enable_timezone_override);
+
   // -- Display Settings --
   create_settings_divider(cont, localized_text->display);
   // Brightness
@@ -1377,6 +1476,9 @@ void create_or_reload_settings_ui() {
   // Night Mode Brightness
   night_brightness_slider = create_slider(cont, LV_SYMBOL_IMAGE, localized_text->night_brightness, 5, 255, night_brightness);
   lv_obj_add_event_cb(night_brightness_slider, night_brightness_slider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+
+  // Restart WiFi Manager Button
+  //create_button(cont, false, LV_SYMBOL_WIFI "Restart WiFi Manager", restart_wifimanager_event_handler);
 
   
 }

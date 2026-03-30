@@ -98,6 +98,10 @@ NightModeTimes nightModeTimes = {23, 0, 8, 0};
 
 bool nightModeActive = true;
 
+bool timezoneOverrideActive = false;
+lv_obj_t* timezone_override_switch = nullptr;
+TimeRoller timezoneRoller = {nullptr, nullptr};
+
 struct DriverStanding {
   String position;
   String points;

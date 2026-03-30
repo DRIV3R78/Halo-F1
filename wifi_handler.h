@@ -540,8 +540,8 @@ void saveConfigCallback () {
 void configModeCallback (WiFiManager *myWiFiManager) {
   lv_screen_load(screen.wifi);
   lv_obj_t * label3 = lv_label_create(screen.wifi);
-  lv_label_set_text(label3, localized_text->wifi_connection_failed);
-  lv_obj_align(label3, LV_ALIGN_CENTER, 0, 50);
+  lv_label_set_text_fmt(label3, localized_text->wifi_connection_failed, WiFi.softAPIP().toString().c_str());
+  lv_obj_align(label3, LV_ALIGN_BOTTOM_MID, 0, -20);
   lv_label_set_long_mode(label3, LV_LABEL_LONG_WRAP);
   lv_obj_set_style_width(label3, 250, 0);
   lv_timer_periodic_handler();
