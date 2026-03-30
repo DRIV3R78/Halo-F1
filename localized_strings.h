@@ -296,7 +296,7 @@ const LanguageStrings language_strings_nl PROGMEM = {
   "Dutch",
   "Helderheid",
   "Nachtmodus",
-  "Helligkeit Nachtmodus",
+  "Helderheid Nachtmodus",
   "Update Beschikbaar!",
   "Geen Spoilermodus",
   "Nieuwe Resultaten Beschikbaar",
