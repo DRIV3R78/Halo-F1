@@ -36,6 +36,10 @@ String formatLapTime(float seconds) {
 
 // API call to get current timezone offset
 int64_t getUtcOffsetInSeconds() {
+  if (timezoneOverrideActive) {
+    return UTCoffset; // just echo back whatever the rollers set
+  }
+
   HTTPClient client;
 
   //debug->println("Getting local time zone");
@@ -73,6 +77,7 @@ int64_t getUtcOffsetInSeconds() {
     UTCoffsetMinutes = -UTCoffsetMinutes;
   }
   //debug->print("Offset in seconds: "); debug->println(result);
+
   return result;
 }
 
@@ -252,6 +257,10 @@ void update_ui(lv_timer_t *timer) {
   if (racetab_labels.date) lv_label_set_text_fmt(racetab_labels.date, "%s %d, %s", localized_text->short_days[adjustedTime.tm_wday], adjustedTime.tm_mday, localized_text->months[adjustedTime.tm_mon]);
   if (racetab_labels.race_name) lv_label_set_text_fmt(racetab_labels.race_name, "%s", next_race.raceName.c_str());
 
+  if (timezoneRoller.hours) {
+    lv_roller_set_selected(timezoneRoller.hours, adjustedTime.tm_hour, LV_ANIM_ON);
+  }
+
   Serial.println("Updating Race Sessions");
   create_or_reload_race_sessions();
   Serial.println("Race Sessions Updated");
@@ -344,4 +353,13 @@ bool isNightTime() {
   }
 
   return in_range;
+}
+
+
+void halo_set_switch_state(lv_obj_t* switch_obj, bool state) {
+    if (state) {
+        lv_obj_add_state(switch_obj, LV_STATE_CHECKED);
+    } else {
+        lv_obj_clear_state(switch_obj, LV_STATE_CHECKED);
+    }
 }

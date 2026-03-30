@@ -47,6 +47,8 @@ typedef struct {
   const char* new_results_available;
   const char* show_results;
   const char* display;
+  const char* time_settings;
+  const char* enable_timezone_override;
 } LanguageStrings;
 
 const LanguageStrings language_strings_en PROGMEM = {
@@ -56,7 +58,7 @@ const LanguageStrings language_strings_en PROGMEM = {
   {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"},
   "WiFi access loading...",
   "Successfully connected to WiFi!",
-  "Failed to connect to WiFi, connect to \"Halo-F1\" Network from your phone to set the credentials",
+  "Failed to connect to WiFi, connect to \"Halo-F1\" Network from your phone to set the credentials.\n\nIf the captive portal doesn't open automatically, open your browser and navigate to %s",
   "Ok",
   "Yes",
   "No",
@@ -98,6 +100,8 @@ const LanguageStrings language_strings_en PROGMEM = {
   "New Results Available",
   "Show Results",
   "Display",
+  "Time",
+  "Enable Timezone Override",
 };
 
 const LanguageStrings language_strings_it PROGMEM = {
@@ -107,7 +111,7 @@ const LanguageStrings language_strings_it PROGMEM = {
   {"Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"},
   "Accesso WiFi in corso...",
   "Collegamento WiFi riuscito!",
-  "Collegamento WiFi fallito, connettiti alla rete \"Halo-F1\" dal tuo cellulare per impostare i dati",
+  "Collegamento WiFi fallito, connettiti alla rete \"Halo-F1\" dal tuo cellulare per impostare i dati.\n\nSe il captive portal non si apre automaticamente, apri il browser e naviga a %s",
   "Ok",
   "Sì",
   "No",
@@ -149,6 +153,8 @@ const LanguageStrings language_strings_it PROGMEM = {
   "Nuovi Risultati Disponibili",
   "Mostra Risultati",
   "Schermo",
+  "Orario",
+  "Abilita Override Fuso Orario",
 };
 
 const LanguageStrings language_strings_es PROGMEM = {
@@ -158,7 +164,7 @@ const LanguageStrings language_strings_es PROGMEM = {
   {"Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"},
   "Cargando acceso WiFi...",
   "¡Conectado a WiFi correctamente!",
-  "Error al conectar a WiFi, conéctese a la red \"Halo-F1\" desde su teléfono para establecer las credenciales",
+  "Error al conectar a WiFi, conéctese a la red \"Halo-F1\" desde su teléfono para establecer las credenciales.\n\nSi el captive portal no se abre automáticamente, abra su navegador y vaya a %s",
   "Ok",
   "Si",
   "No",
@@ -200,6 +206,8 @@ const LanguageStrings language_strings_es PROGMEM = {
   "Nuevos Resultados Disponibles",
   "Mostrar Resultados",
   "Pantalla",
+  "Orario",
+  "Abilita Override Fuso Orario",
 };
 
 const LanguageStrings language_strings_fr PROGMEM = {
@@ -209,7 +217,7 @@ const LanguageStrings language_strings_fr PROGMEM = {
   {"Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"},
   "Chargement de l'acces WiFi...",
   "Connexion WiFi reussie !",
-  "Echec de connexion au WiFi, connectez-vous au reseau \"Halo-F1\" depuis votre telephone pour definir les identifiants",
+  "Echec de connexion au WiFi, connectez-vous au reseau \"Halo-F1\" depuis votre telephone pour definir les identifiants.\n\nSi le captive portal ne s'ouvre pas automatiquement, ouvrez votre navigateur et rendez-vous sur %s",
   "Ok",
   "Oui",
   "Non",
@@ -251,6 +259,8 @@ const LanguageStrings language_strings_fr PROGMEM = {
   "Nouveaux Resultats Disponibles",
   "Afficher les Resultats",
   "Affichage",
+  "Heure",
+  "Activer le Override de Fuseau Horaire",
 };
 
 const LanguageStrings language_strings_nl PROGMEM = {
@@ -260,7 +270,7 @@ const LanguageStrings language_strings_nl PROGMEM = {
   {"Zo", "Ma", "Di", "Wo", "Do", "Vr", "Za"},
   "WiFi-toegang laden...",
   "Succesvol verbonden met WiFi!",
-  "Verbinding met WiFi mislukt, verbind met het netwerk \"Halo-F1\" via je telefoon om de inloggegevens in te stellen",
+  "Verbinding met WiFi mislukt, verbind met het netwerk \"Halo-F1\" via je telefoon om de inloggegevens in te stellen.\n\nAls de captive portal niet automatisch opent, open dan je browser en ga naar %s",
   "Ok",
   "Ja",
   "Nee",
@@ -302,6 +312,8 @@ const LanguageStrings language_strings_nl PROGMEM = {
   "Nieuwe Resultaten Beschikbaar",
   "Toon Resultaten",
   "Scherm",
+  "Tijd",
+  "Tijdzone Override Inschakelen",
 };
 
 const LanguageStrings language_strings_de PROGMEM = {
@@ -311,7 +323,7 @@ const LanguageStrings language_strings_de PROGMEM = {
   {"So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"},
   "WLAN-Zugang wird geladen...",
   "Erfolgreich mit WLAN verbunden!",
-  "Fehler bei der WLAN-Verbindung, verbinde dich mit dem Netzwerk \"Halo-F1\" von deinem Handy aus, um die Zugangsdaten einzugeben",
+  "Fehler bei der WLAN-Verbindung, verbinde dich mit dem Netzwerk \"Halo-F1\" von deinem Handy aus, um die Zugangsdaten einzugeben.\n\nWenn der captive portal nicht automatisch öffnet, öffne deinen Browser und navigiere zu %s",
   "Ok",
   "Ja",
   "Nein",
@@ -353,6 +365,8 @@ const LanguageStrings language_strings_de PROGMEM = {
   "Neue Ergebnisse Verfügbar",
   "Ergebnisse Anzeigen",
   "Anzeige",
+  "Zeit",
+  "Zeitzonen-Override Aktivieren",
 };
 
 const LanguageStrings language_strings_pt PROGMEM = {
@@ -362,7 +376,7 @@ const LanguageStrings language_strings_pt PROGMEM = {
   {"Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"},
   "Carregando acesso WiFi...",
   "Conectado ao WiFi com sucesso!",
-  "Falha ao conectar ao WiFi, conecte-se à rede \"Halo-F1\" pelo seu telefone para definir as credenciais",
+  "Falha ao conectar ao WiFi, conecte-se à rede \"Halo-F1\" pelo seu telefone para definir as credenciais.\n\nSe o captive portal não abrir automaticamente, abra seu navegador e vá para %s",
   "Ok",
   "Sim",
   "Não",
@@ -404,6 +418,8 @@ const LanguageStrings language_strings_pt PROGMEM = {
   "Novos Resultados Disponíveis",
   "Mostrar Resultados",
   "Tela",
+  "Hora",
+  "Ativar Override de Fuso Horário",
 };
 
 const LanguageStrings language_strings_no PROGMEM = {
@@ -413,7 +429,7 @@ const LanguageStrings language_strings_no PROGMEM = {
   {"Søn", "Man", "Tir", "Ons", "Tor", "Fre", "Lør"},
   "Laster inn WiFi-tilgang...",
   "Tilkoblet WiFi!",
-  "Kunne ikke koble til WiFi, koble til nettverket \"Halo-F1\" fra din telefon for å skrive inn påloggingsinformasjonen",
+  "Kunne ikke koble til WiFi, koble til nettverket \"Halo-F1\" fra din telefon for å skrive inn påloggingsinformasjonen.\n\nHvis den captive portal ikke åpnes automatisk, åpne din nettleser og gå til %s",
   "Ok",
   "Ja",
   "Nei",
@@ -455,6 +471,8 @@ const LanguageStrings language_strings_no PROGMEM = {
   "Nye Resultater Tilgjengelig",
   "Vis Resultater",
   "Skjerm",
+  "Tid",
+  "Aktiver Tidszone Override",
 };
 
 const LanguageStrings language_strings_pl PROGMEM = {
@@ -464,7 +482,7 @@ const LanguageStrings language_strings_pl PROGMEM = {
   {"Niedz.", "Pon.", "Wt.", "Sr.", "Czw.", "Pt.", "Sb."},
   "Laczenie z WiFi...",
   "Polaczono z WiFi!",
-  "Nie udalo sie polaczyc z WiFi, podlacz sie do sieci \"Halo-F1\" ze swojego telefonu i wprowadz nazwe sieci oraz haslo.",
+  "Nie udalo sie polaczyc z WiFi, podlacz sie do sieci \"Halo-F1\" ze swojego telefonu i wprowadz nazwe sieci oraz haslo.\n\nJesli captive portal nie otworzy sie automatycznie, otwórz przegladarke i przejdz do %s",
   "OK",
   "Tak",
   "Nie",
@@ -506,6 +524,8 @@ const LanguageStrings language_strings_pl PROGMEM = {
   "Dostepne Nowe Wyniki",
   "Pokaz",
   "Wyswietlacz",
+  "Czas",
+  "Aktywuj Nadpisanie Strefy Czasowej",
 };
 
 uint32_t get_team_color(String team) {
