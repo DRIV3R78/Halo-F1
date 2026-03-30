@@ -47,7 +47,6 @@ static void language_selection_event_handler(lv_event_t * e) {
       localized_text = languages[sel].strings;
       Serial.printf("Language changed to: %s\n", languages[sel].displayName);
       create_or_reload_settings_ui();
-      //update_ui(nullptr); //update time sensitive ui
       force_update_ui();
       //create_or_reload_news_ui(nullptr); //takes too long
   }
@@ -63,78 +62,17 @@ static void msgbox_close_event_handler(lv_event_t * e) {
 static void brightness_slider_event_cb(lv_event_t * e) {
     lv_obj_t * slider = (lv_obj_t *) lv_event_get_target(e);
     brightness = (uint8_t) lv_slider_get_value(slider);
-
-    struct tm timeinfo;
-    if (!getLocalTime(&timeinfo)) return;
-
-    time_t timeEpoch = timegm(&timeinfo);
-
-    if (timeEpoch <= 1000) return;
-
-    // Apply offset in seconds
-    timeEpoch += UTCoffset;
-
-    // Convert back to local tm
-    struct tm adjustedTime;
-    gmtime_r(&timeEpoch, &adjustedTime);
-
-    int now   = adjustedTime.tm_hour * 60 + adjustedTime.tm_min;
-    int start = nightModeTimes.start_hours * 60 + nightModeTimes.start_minutes;
-    int stop  = nightModeTimes.stop_hours  * 60 + nightModeTimes.stop_minutes;
-
-    bool in_range = false;
-    if (start < stop) {
-        // Normal case: same day
-        in_range = (now >= start && now < stop);
-    } else if (start > stop) {
-        // Rollover case: spans midnight
-        in_range = (now >= start || now < stop);
-    } else {
-        // start == stop → full 24h
-        in_range = true;
-    }
     
-    if (!in_range || !nightModeActive) adjustBrightness(brightness);
+    if (!isNightTime() || !nightModeActive) adjustBrightness(brightness);
 }
 
 static void night_brightness_slider_event_cb(lv_event_t * e) {
     lv_obj_t * slider = (lv_obj_t *) lv_event_get_target(e);
     night_brightness = (uint8_t) lv_slider_get_value(slider);
 
-    if (nightModeActive) {
-      struct tm timeinfo;
-      if (!getLocalTime(&timeinfo)) return;
-
-      time_t timeEpoch = timegm(&timeinfo);
-
-      if (timeEpoch <= 1000) return;
-
-      // Apply offset in seconds
-      timeEpoch += UTCoffset;
-
-      // Convert back to local tm
-      struct tm adjustedTime;
-      gmtime_r(&timeEpoch, &adjustedTime);
-
-      int now   = adjustedTime.tm_hour * 60 + adjustedTime.tm_min;
-      int start = nightModeTimes.start_hours * 60 + nightModeTimes.start_minutes;
-      int stop  = nightModeTimes.stop_hours  * 60 + nightModeTimes.stop_minutes;
-
-      bool in_range = false;
-      if (start < stop) {
-          // Normal case: same day
-          in_range = (now >= start && now < stop);
-      } else if (start > stop) {
-          // Rollover case: spans midnight
-          in_range = (now >= start || now < stop);
-      } else {
-          // start == stop → full 24h
-          in_range = true;
-      }
-      
-      if (in_range) adjustBrightness(night_brightness);
-    }
-    
+    if (nightModeActive) {      
+      if (isNightTime()) adjustBrightness(night_brightness);
+    } 
 }
 
 static void no_spoiler_switch_handler(lv_event_t * e) {
@@ -159,39 +97,8 @@ static void night_mode_switch_handler(lv_event_t * e) {
 
     if (lv_obj_has_state(sw, LV_STATE_CHECKED)) {
         nightModeActive = true;
-        //raceweekend_override = true;
 
-        struct tm timeinfo;
-        if (!getLocalTime(&timeinfo)) return;
-
-        time_t timeEpoch = timegm(&timeinfo);
-
-        if (timeEpoch <= 1000) return;
-
-        // Apply offset in seconds
-        timeEpoch += UTCoffset;
-
-        // Convert back to local tm
-        struct tm adjustedTime;
-        gmtime_r(&timeEpoch, &adjustedTime);
-
-        int now   = adjustedTime.tm_hour * 60 + adjustedTime.tm_min;
-        int start = nightModeTimes.start_hours * 60 + nightModeTimes.start_minutes;
-        int stop  = nightModeTimes.stop_hours  * 60 + nightModeTimes.stop_minutes;
-
-        bool in_range = false;
-        if (start < stop) {
-            // Normal case: same day
-            in_range = (now >= start && now < stop);
-        } else if (start > stop) {
-            // Rollover case: spans midnight
-            in_range = (now >= start || now < stop);
-        } else {
-            // start == stop → full 24h
-            in_range = true;
-        }
-
-        if (in_range) {
+        if (isNightTime()) {
             adjustBrightness(night_brightness);
             //esp_light_sleep_start();
         } else {
@@ -199,7 +106,6 @@ static void night_mode_switch_handler(lv_event_t * e) {
         }
     } else {
         nightModeActive = false;
-        //raceweekend_override = false;
         adjustBrightness(brightness);
     }
 }

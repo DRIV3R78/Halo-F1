@@ -310,3 +310,38 @@ void force_update_ui() {
 bool hasRaceWeekendStarted() {
   return hasSessionStarted(next_race.sessions[0].date, next_race.sessions[0].time);
 }
+
+
+bool isNightTime() {
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo)) return false;
+
+  time_t timeEpoch = timegm(&timeinfo);
+
+  if (timeEpoch <= 1000) return false;
+
+  // Apply offset in seconds
+  timeEpoch += UTCoffset;
+
+  // Convert back to local tm
+  struct tm adjustedTime;
+  gmtime_r(&timeEpoch, &adjustedTime);
+
+  int now   = adjustedTime.tm_hour * 60 + adjustedTime.tm_min;
+  int start = nightModeTimes.start_hours * 60 + nightModeTimes.start_minutes;
+  int stop  = nightModeTimes.stop_hours  * 60 + nightModeTimes.stop_minutes;
+
+  bool in_range = false;
+  if (start < stop) {
+      // Normal case: same day
+      in_range = (now >= start && now < stop);
+  } else if (start > stop) {
+      // Rollover case: spans midnight
+      in_range = (now >= start || now < stop);
+  } else {
+      // start == stop → full 24h
+      in_range = true;
+  }
+
+  return in_range;
+}
