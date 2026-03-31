@@ -230,6 +230,7 @@ char* getSessionDateTimeFormatted(String utcSessionDate, String utcSessionTime, 
 void update_internal_clock() {
   UTCoffset = (long) getUtcOffsetInSeconds();
   configTime(0, 0, "pool.ntp.org");
+  Serial.println("[Utils.h] Internal clock updated via NTP");
 }
 
 // Runs with lvgl timer, updates internal clock with offset, updates UI display of clock, date, race name and sessions
@@ -251,8 +252,8 @@ void update_ui(lv_timer_t *timer) {
   struct tm adjustedTime;
   gmtime_r(&timeEpoch, &adjustedTime);
 
-  //if (timeinfo.tm_min % 60 == 0) update_internal_clock();
-  Serial.println("Updating Clock and shit");
+  if (timeinfo.tm_hour == 2 && timeinfo.tm_min % 60 == 0) update_internal_clock();
+  Serial.println("[Utils.h] Updating Clock and shit");
   if (racetab_labels.clock) lv_label_set_text_fmt(racetab_labels.clock, "%02d:%02d", adjustedTime.tm_hour, adjustedTime.tm_min);
   if (racetab_labels.date) lv_label_set_text_fmt(racetab_labels.date, "%s %d, %s", localized_text->short_days[adjustedTime.tm_wday], adjustedTime.tm_mday, localized_text->months[adjustedTime.tm_mon]);
   if (racetab_labels.race_name) lv_label_set_text_fmt(racetab_labels.race_name, "%s", next_race.raceName.c_str());
@@ -261,9 +262,9 @@ void update_ui(lv_timer_t *timer) {
     lv_roller_set_selected(timezoneRoller.hours, adjustedTime.tm_hour, LV_ANIM_ON);
   }
 
-  Serial.println("Updating Race Sessions");
+  Serial.println("[Utils.h] Updating Race Sessions");
   create_or_reload_race_sessions();
-  Serial.println("Race Sessions Updated");
+  Serial.println("[Utils.h] Race Sessions Updated");
 
   // NIGHT MODE
   if (nightModeActive) {
@@ -294,15 +295,15 @@ void force_update_ui() {
   struct tm adjustedTime;
   gmtime_r(&timeEpoch, &adjustedTime);
 
-  //if (timeinfo.tm_min % 60 == 0) update_internal_clock();
-  Serial.println("Updating Clock and shit");
+  if (timeinfo.tm_hour == 2 && timeinfo.tm_min % 60 == 0) update_internal_clock();
+  Serial.println("[Utils.h] Updating Clock and shit");
   if (racetab_labels.clock) lv_label_set_text_fmt(racetab_labels.clock, "%02d:%02d", adjustedTime.tm_hour, adjustedTime.tm_min);
   if (racetab_labels.date) lv_label_set_text_fmt(racetab_labels.date, "%s %d, %s", localized_text->short_days[adjustedTime.tm_wday], adjustedTime.tm_mday, localized_text->months[adjustedTime.tm_mon]);
   if (racetab_labels.race_name) lv_label_set_text_fmt(racetab_labels.race_name, "%s", next_race.raceName.c_str());
 
-  Serial.println("Updating Race Sessions");
+  Serial.println("[Utils.h] Updating Race Sessions");
   create_or_reload_race_sessions( true );
-  Serial.println("Race Sessions Updated");
+  Serial.println("[Utils.h] Race Sessions Updated");
 
   // NIGHT MODE
   if (nightModeActive) {

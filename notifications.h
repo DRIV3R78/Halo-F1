@@ -49,6 +49,8 @@ void show_notification_popup(String title, String text, String qrPayload) {
 
     lv_obj_set_style_border_color(qr, lv_color_white(), 0);
     lv_obj_set_style_border_width(qr, 5, 0);
+    lv_obj_set_style_margin_top(qr, 20, 0);
+    lv_obj_set_style_margin_bottom(qr, 20, 0);
     
     lv_obj_t * scan_lbl = lv_label_create(content_obj);
     lv_label_set_text(scan_lbl, localized_text->scan_to_open);

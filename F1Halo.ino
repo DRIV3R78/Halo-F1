@@ -216,14 +216,22 @@ struct TabsStruct {
 
 TabsStruct tabs;
 
+// TRANSLATIONS
+#include "localized_strings.h"
+
+// PREFERENCES
+#include <Preferences.h>
+Preferences preferences;
+#include "settings.h"
+
 // LCD SCREEN
 #include <bb_spi_lcd.h> // v2.7.1
 #include "lv_bb_spi_lcd.h"
 #include "touchscreen.h"
+
 // FILES
-#include "audio.h"
-#include "localized_strings.h"
 #include "utils.h"
+#include "audio.h"
 #include "notifications.h"
 #include "weather.h"      // ← weather forecast (Open-Meteo, no API key)
 #include "ui.h"
@@ -260,20 +268,21 @@ void setup() {
 
   playNotificationSound();
 
+  loadSettings(); //init preferences storage, check for saved settings and load them if present
+
   create_ui_skeleton();
 
   setupWiFiManager(false);
 
   post_wifi_ui_creation();
 
-  lv_screen_load(screen.home);
-
   String uuid = getDeviceUUID();
   Serial.println("Device UUID: " + uuid);
   Serial.println("Device FW: " + fw_version);
 
   sendStatisticData(nullptr);
-
+  
+  lv_screen_load(screen.home);
   Serial.println("Setup done");
 }
 
