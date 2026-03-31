@@ -570,7 +570,7 @@ void setupWiFiManager(bool forceConfig) {
       statistics_timer = NULL;
       if (notifications_timer) lv_timer_del(notifications_timer);
       notifications_timer = NULL;
-      Serial.println("failed to connect and hit timeout");
+      Serial.println("[WiFiManager] failed to connect and hit timeout");
       delay(3000);
       //reset and try again, or maybe put it to deep sleep
       ESP.restart();
@@ -599,7 +599,7 @@ void setupWiFiManager(bool forceConfig) {
       statistics_timer = NULL;
       if (notifications_timer) lv_timer_del(notifications_timer);
       notifications_timer = NULL;
-      Serial.println("failed to connect and hit timeout");
+      Serial.println("[WiFiManager] failed to connect and hit timeout");
       delay(3000);
       // if we still have not connected restart and try all over again
       ESP.restart();

@@ -36,7 +36,7 @@ static bool news_styles_initialized = false;
 void adjustBrightness(uint8_t new_brightness) {
   lv_bb_spi_lcd_t * dsc = (lv_bb_spi_lcd_t *)lv_display_get_driver_data(disp);
   dsc->lcd->setBrightness(new_brightness);
-  Serial.printf("Brightness Adjusted to: %d\n", new_brightness);
+  Serial.printf("[UI] Brightness Adjusted to: %d\n", new_brightness);
 }
 
 static void language_selection_event_handler(lv_event_t * e) {
@@ -45,7 +45,7 @@ static void language_selection_event_handler(lv_event_t * e) {
 
   if (sel < languageCount) {
       localized_text = languages[sel].strings;
-      Serial.printf("Language changed to: %s\n", languages[sel].displayName);
+      Serial.printf("[UI] Language changed to: %s\n", languages[sel].displayName);
       create_or_reload_settings_ui();
       force_update_ui();
       //create_or_reload_news_ui(nullptr); //takes too long
@@ -174,7 +174,7 @@ static void night_mode_roller_event_handler(lv_event_t * e) {
       nightModeTimes.stop_hours = (uint8_t) lv_roller_get_selected(nightModeStopRoller.hours);
       nightModeTimes.stop_minutes = (uint8_t) lv_roller_get_selected(nightModeStopRoller.minutes) * 5;
 
-      Serial.printf("Night Mode Timings: %02d:%02d -> %02d:%02d", nightModeTimes.start_hours, nightModeTimes.start_minutes, nightModeTimes.stop_hours, nightModeTimes.stop_minutes);
+      Serial.printf("[UI] Night Mode Timings: %02d:%02d -> %02d:%02d", nightModeTimes.start_hours, nightModeTimes.start_minutes, nightModeTimes.stop_hours, nightModeTimes.stop_minutes);
     
       if (nightModeActive && isNightTime()) {
         adjustBrightness(night_brightness);
@@ -186,6 +186,7 @@ static void night_mode_roller_event_handler(lv_event_t * e) {
     }
 }
 
+// Currently unused, but ready for implementation
 static void reload_clock_event_handler(lv_event_t * e) {
   lv_event_code_t code = lv_event_get_code(e);
   update_internal_clock();
@@ -442,7 +443,7 @@ void animate_results(lv_obj_t * container) {
 }
 
 static void populate_results(lv_obj_t * container, int offset) {
-    Serial.println("Populating Results");
+    //Serial.println("[UI] Populating Results");
     uint32_t delay = 400;
 
     if (current_results != "Qualifying" && current_results != "Sprint Qualifying") {
@@ -453,13 +454,13 @@ static void populate_results(lv_obj_t * container, int offset) {
         DriverStanding * driver = getDriverInfoByNumber(results[idx].driver_number);
 
         if (driver == nullptr) {
-          Serial.printf("Driver not found for number %d, id: %d\n", results[idx].driver_number, idx);
+          Serial.printf("[UI] Driver not found for number %d, id: %d\n", results[idx].driver_number, idx);
           continue; // skip this entry
         }
 
         char driverInitial;
         if (driver->name.length() == 0) {
-          Serial.printf("Driver %d has empty name\n", results[idx].driver_number);
+          Serial.printf("[UI] Driver %d has empty name\n", results[idx].driver_number);
         } else {
           driverInitial = driver->name.charAt(0);
         }
@@ -480,7 +481,7 @@ static void populate_results(lv_obj_t * container, int offset) {
                             gap,
                             driver->constructorId);
 
-        Serial.println("Standings row created and populated");
+        Serial.println("[UI] Standings row created and populated");
       }
     } else {
         for (int i = 0; i < STANDINGS_PAGE_SIZE; i++) {
@@ -490,13 +491,13 @@ static void populate_results(lv_obj_t * container, int offset) {
         DriverStanding * driver = getDriverInfoByNumber(results[idx].driver_number);
 
         if (driver == nullptr) {
-          Serial.printf("Driver not found for number %d\n", results[idx].driver_number);
+          Serial.printf("[UI] Driver not found for number %d\n", results[idx].driver_number);
           continue; // skip this entry
         }
 
         char driverInitial;
         if (driver->name.length() == 0) {
-          Serial.printf("Driver %d has empty name\n", results[idx].driver_number);
+          Serial.printf("[UI] Driver %d has empty name\n", results[idx].driver_number);
         } else {
           driverInitial = driver->name.charAt(0);
         }
@@ -912,7 +913,6 @@ void create_or_reload_race_sessions(bool force_reload) {
   lv_coord_t row_w = (lv_coord_t)(SCREEN_WIDTH - 4);
 
   // Weather-badge column is only shown when data is available.
-  // 48 px is comfortable for "SUN 22°" in montserrat_12.
   const lv_coord_t WEATHER_W = 48;
 
   for (int i = 0; i < next_race.sessionCount; i++) {
@@ -1032,7 +1032,7 @@ void create_or_reload_race_sessions(bool force_reload) {
           populate_standings(standings_container, 0);
 
           standings_ui_timer = lv_timer_create([](lv_timer_t *t) {
-              Serial.println("Inside Standings Animation Timer");
+              //Serial.println("Inside Standings Animation Timer");
               animate_standings((lv_obj_t *)lv_timer_get_user_data(t));
           }, 15000, standings_container);
       }
@@ -1044,16 +1044,16 @@ void create_or_reload_race_sessions(bool force_reload) {
   if (! hasRaceWeekendStarted()) return;
 
   // race weekend has started
-  Serial.println("Race Weekend Has Started, following with results logic");
+  Serial.println("[UI] Race Weekend Has Started, following with results logic");
 
   current_results = last_session.name;
   Serial.println("Last session name done");
 
   if (last_session.name == "FP1" || last_session.name == "FP2" || last_session.name == "FP3") {
-    Serial.println("Inside FP123");
+    Serial.println("[UI] Inside FP123");
     
     if (! hasFreePracticeFinished(last_session.date, last_session.time)) {
-      Serial.println("Inside FP not finished");
+      Serial.println("[UI] Inside FP not finished");
       check_delay = 5 * 60000; //every 5 minutes
       if (standings_ui_timer) lv_timer_del(standings_ui_timer);
       standings_ui_timer = NULL;
@@ -1072,11 +1072,11 @@ void create_or_reload_race_sessions(bool force_reload) {
       lv_anim_del(&style_fade, NULL); //was standings_container
       lv_obj_clean(standings_container);
 
-      Serial.println("Running Results API Check");
+      Serial.println("[UI] Running Results API Check");
       bool got_results = getLastSessionResults(results);
 
       if (!got_results || !results_loaded_once) {
-        Serial.println("API Check Run but encountered an error");
+        Serial.println("[UI] API Check Run but encountered an error");
         if (last_results != current_results) return;
       } else {
         last_results = current_results;
@@ -1096,9 +1096,9 @@ void create_or_reload_race_sessions(bool force_reload) {
           }, 15000, standings_container);
       }
 
-      Serial.println("Results for Free Practice Rendered");
+      Serial.println("[UI] Results for Free Practice Rendered");
     } else {
-        Serial.println("Not yet time to check for session's results");
+        Serial.println("[UI] Not yet time to check for session's results");
     }
 
     return;
@@ -1114,12 +1114,12 @@ void create_or_reload_race_sessions(bool force_reload) {
   lv_anim_del(&style_fade, NULL); //was standings_container
   lv_obj_clean(standings_container);
 
-  Serial.println("Running Results API Check");
+  Serial.println("[UI] Running Results API Check");
 
   bool got_results = getLastSessionResults(results);
 
   if (!got_results) {
-    Serial.println("API Check Run but encountered an error");
+    Serial.println("[UI] API Check Run but encountered an error");
     if (last_results != current_results) return;
   } else {
     last_results = current_results;
@@ -1150,7 +1150,7 @@ void create_or_reload_race_sessions(bool force_reload) {
 
 // Runs once or when language is changed
 void create_or_reload_race_ui() {
-  Serial.println("Creating or Reloading Race UI...");
+  Serial.println("[UI] Creating or Reloading Race UI...");
   lv_anim_del(tabs.race, NULL);
   lv_anim_del(sessions_container, NULL);
   lv_anim_del(&style_fade, NULL); //was standings_container
@@ -1229,7 +1229,7 @@ void create_or_reload_race_ui() {
   lv_obj_set_scroll_snap_y(standings_container, LV_SCROLL_SNAP_START);
   lv_obj_align(standings_container, LV_ALIGN_TOP_MID, - SCREEN_WIDTH * 0.025, 295);
 
-  Serial.println("Creating or Reloading Race UI -- DONE!");
+  Serial.println("[UI] Creating or Reloading Race UI -- DONE!");
 }
 
 // Runs once every 5 minutes to fetch latest article and update the news tab -- @TODO -> maybe add some flavour to the graphics?
@@ -1246,7 +1246,7 @@ void create_or_reload_news_ui(lv_timer_t *timer) {
         last_link = link;
     }
 
-    Serial.println("It appears we have a winner (news fetched)");
+    Serial.println("[UI] It appears we have a winner (news fetched)");
 
     if (!news_styles_initialized) {
         news_styles_initialized = true;
@@ -1292,7 +1292,7 @@ void create_or_reload_news_ui(lv_timer_t *timer) {
                           LV_FLEX_ALIGN_CENTER); /* track cross axis */
     lv_obj_add_style(cont, &style_news_container, LV_PART_MAIN);
 
-    Serial.println("News Container Created");
+    Serial.println("[UI] News Container Created");
 
     // Title label
     lv_obj_t *label = lv_label_create(cont);
@@ -1302,7 +1302,7 @@ void create_or_reload_news_ui(lv_timer_t *timer) {
     lv_obj_set_width(label, LV_PCT(100));
     lv_obj_add_style(label, &style_news_title, LV_PART_MAIN);
 
-    Serial.println("News Title Label Created");
+    //Serial.println("News Title Label Created");
 
     // Description label
     label = lv_label_create(cont);
@@ -1312,7 +1312,7 @@ void create_or_reload_news_ui(lv_timer_t *timer) {
     lv_obj_set_width(label, LV_PCT(100));
     lv_obj_add_style(label, &style_news_desc, LV_PART_MAIN);
 
-    Serial.println("News Desc Label Created");
+    //Serial.println("News Desc Label Created");
 
     // QR code container
     lv_obj_t *qr_cont = lv_obj_create(cont);
@@ -1333,10 +1333,10 @@ void create_or_reload_news_ui(lv_timer_t *timer) {
     lv_obj_align_to(caption, qr, LV_ALIGN_OUT_BOTTOM_MID, 0, 6);
     lv_label_set_long_mode(caption, LV_LABEL_LONG_MODE_SCROLL_CIRCULAR);
 
-    Serial.println("News QR Code Created");
+    //Serial.println("News QR Code Created");
 
     if (notifyNewArticle) {
-        Serial.println("Article Link is new, running notification routine for new article fetched.");
+        Serial.println("[UI] Article Link is new, running notification routine for new article fetched.");
         playNotificationSound();
         //lv_tabview_set_active(home_tabs, 1, LV_ANIM_ON); // switch to article tab -- place under a bool switch in settings
     }
@@ -1396,6 +1396,7 @@ void create_or_reload_settings_ui() {
   lv_obj_add_event_cb(night_brightness_slider, night_brightness_slider_event_cb, LV_EVENT_RELEASED, NULL);
 
   // Restart WiFi Manager Button
+  // Doesn't work currently, maybe can be done by setting a global flag, save it to flash, then restart the device
   //create_button(cont, false, LV_SYMBOL_WIFI "Restart WiFi Manager", restart_wifimanager_event_handler);
 
   create_settings_divider(cont, nullptr);

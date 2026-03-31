@@ -101,7 +101,7 @@ void notification_scheduler_task(lv_timer_t *timer) {
             dailyNotificationsShown++;
             lastNotificationTime = millis();
             
-            Serial.printf("Displayed Notification %d of %d\n", actualIndex, notificationQueue.size());
+            Serial.printf("[Notifications] Displayed Notification %d of %d\n", actualIndex, notificationQueue.size());
         }
     }
 }
