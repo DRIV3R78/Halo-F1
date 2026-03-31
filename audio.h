@@ -15,6 +15,11 @@ I2SClass I2S;
 INCBIN(NotificationSound, "notification.mp3");
 
 void playNotificationSound() {
+  if (isNightTime() && nightModeActive) {
+    // Don't play sound if it's night time and night mode is active
+    return;
+  }
+  
   I2S.setPins(I2S_BCK_PIN2, I2S_WS_PIN2, I2S_DATA_OUT_PIN2, -1, -1); //SCK, WS, SDOUT, SDIN, MCLK
   I2S.begin(I2S_MODE_STD, 16000, I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO);
   I2S.playMP3((uint8_t*)gNotificationSoundData,gNotificationSoundSize);

@@ -4,8 +4,7 @@ const int DRIVERS_NUMBER = 22;
 
 // fix the results api for when there are changes that result in a lesser number of drivers
 // add other rss feed in other languages
-// add language switcher to wifi setup screen
-// settings: add UTC offset modifier (for people using VPN or anyways if WiFi detection goes crazy)
+// add language switcher to wifi setup screen --> not applicable right now
 // settings: make user decide if they want to see drivers standings, constructors or both one after the other in the main page (select tool)
 // settings: add bool switch to control if tabs should be switched to news when a new article is fetched
 
@@ -133,17 +132,17 @@ SeasonStanding current_season;
 int driverStandingsCount = 0;
 
 struct RaceSession {
-    String name;   // e.g., "FP1", "Sprint", "Race"
-    String date;   // Local date after offset applied
-    String time;   // Local time after offset applied
+    String name;
+    String date;
+    String time;
 };
 
 struct NextRaceInfo {
     String raceName;
     String circuitName;
     String country;
-    float lat;   // circuit latitude  (from Jolpi API)
-    float lon;   // circuit longitude (from Jolpi API)
+    float lat;
+    float lon;
     bool isSprintWeekend;
     int sessionCount;
     RaceSession sessions[10]; // Usually no more than 6
@@ -154,8 +153,8 @@ NextRaceInfo next_race;
 struct SessionResults {
   String driver_number;
   String position;
-  float duration;          // for race (seconds)
-  float quali[3];          // for qualifying (Q1, Q2, Q3)
+  float duration;
+  float quali[3];
   float gap_to_leader;
   float gap_to_leader_quali[3];
   bool isQualifying;
@@ -216,23 +215,30 @@ struct TabsStruct {
 
 TabsStruct tabs;
 
+// TRANSLATIONS
+#include "localized_strings.h"
+
+// PREFERENCES
+#include <Preferences.h>
+Preferences preferences;
+#include "settings.h"
+
 // LCD SCREEN
 #include <bb_spi_lcd.h> // v2.7.1
 #include "lv_bb_spi_lcd.h"
 #include "touchscreen.h"
+
 // FILES
-#include "audio.h"
-#include "localized_strings.h"
 #include "utils.h"
+#include "audio.h"
 #include "notifications.h"
-#include "weather.h"      // ← weather forecast (Open-Meteo, no API key)
+#include "weather.h"
 #include "ui.h"
 #include "wifi_handler.h" // WiFiManager by Tzapu v2.0.17
 
 
 void setup() {
   Serial.begin(115200);
-  //debug = &Serial;
 
   localized_text = &language_strings_en;
 
@@ -246,7 +252,6 @@ void setup() {
 #ifdef TOUCH_CAPACITIVE
   // Initialize touch screen
   bbct.init(TOUCH_SDA, TOUCH_SCL, TOUCH_RST, TOUCH_INT);
-  //bbct.setOrientation(270, SCREEN_WIDTH, SCREEN_HEIGHT);
 #else
   lv_bb_spi_lcd_t* dsc = (lv_bb_spi_lcd_t *)lv_display_get_driver_data(disp);
   lcd = dsc->lcd;
@@ -260,21 +265,22 @@ void setup() {
 
   playNotificationSound();
 
+  loadSettings(); //init preferences storage, check for saved settings and load them if present
+
   create_ui_skeleton();
 
   setupWiFiManager(false);
 
   post_wifi_ui_creation();
 
-  lv_screen_load(screen.home);
-
   String uuid = getDeviceUUID();
-  Serial.println("Device UUID: " + uuid);
-  Serial.println("Device FW: " + fw_version);
+  Serial.println("[Setup] Device UUID: " + uuid);
+  Serial.println("[Setup] Device FW: " + fw_version);
 
   sendStatisticData(nullptr);
-
-  Serial.println("Setup done");
+  
+  lv_screen_load(screen.home);
+  Serial.println("[Setup] Setup done");
 }
 
 void loop() {   

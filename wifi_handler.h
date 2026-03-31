@@ -539,11 +539,14 @@ void saveConfigCallback () {
 // Called when WiFi Access Point is activated for connection setup (first setup or connection failed)
 void configModeCallback (WiFiManager *myWiFiManager) {
   lv_screen_load(screen.wifi);
+
+  // Show WiFi setup instructions
   lv_obj_t * label3 = lv_label_create(screen.wifi);
   lv_label_set_text_fmt(label3, localized_text->wifi_connection_failed, WiFi.softAPIP().toString().c_str());
   lv_obj_align(label3, LV_ALIGN_BOTTOM_MID, 0, -20);
   lv_label_set_long_mode(label3, LV_LABEL_LONG_WRAP);
   lv_obj_set_style_width(label3, 250, 0);
+
   lv_timer_periodic_handler();
 }
 
@@ -567,7 +570,7 @@ void setupWiFiManager(bool forceConfig) {
       statistics_timer = NULL;
       if (notifications_timer) lv_timer_del(notifications_timer);
       notifications_timer = NULL;
-      Serial.println("failed to connect and hit timeout");
+      Serial.println("[WiFiManager] failed to connect and hit timeout");
       delay(3000);
       //reset and try again, or maybe put it to deep sleep
       ESP.restart();
@@ -596,7 +599,7 @@ void setupWiFiManager(bool forceConfig) {
       statistics_timer = NULL;
       if (notifications_timer) lv_timer_del(notifications_timer);
       notifications_timer = NULL;
-      Serial.println("failed to connect and hit timeout");
+      Serial.println("[WiFiManager] failed to connect and hit timeout");
       delay(3000);
       // if we still have not connected restart and try all over again
       ESP.restart();

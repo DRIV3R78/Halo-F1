@@ -36,7 +36,7 @@ static bool news_styles_initialized = false;
 void adjustBrightness(uint8_t new_brightness) {
   lv_bb_spi_lcd_t * dsc = (lv_bb_spi_lcd_t *)lv_display_get_driver_data(disp);
   dsc->lcd->setBrightness(new_brightness);
-  Serial.printf("Brightness Adjusted to: %d\n", new_brightness);
+  Serial.printf("[UI] Brightness Adjusted to: %d\n", new_brightness);
 }
 
 static void language_selection_event_handler(lv_event_t * e) {
@@ -45,11 +45,13 @@ static void language_selection_event_handler(lv_event_t * e) {
 
   if (sel < languageCount) {
       localized_text = languages[sel].strings;
-      Serial.printf("Language changed to: %s\n", languages[sel].displayName);
+      Serial.printf("[UI] Language changed to: %s\n", languages[sel].displayName);
       create_or_reload_settings_ui();
       force_update_ui();
       //create_or_reload_news_ui(nullptr); //takes too long
   }
+
+  saveSettings();
 }
 
 static void msgbox_close_event_handler(lv_event_t * e) {
@@ -64,15 +66,17 @@ static void brightness_slider_event_cb(lv_event_t * e) {
     brightness = (uint8_t) lv_slider_get_value(slider);
     
     if (!isNightTime() || !nightModeActive) adjustBrightness(brightness);
+
+    if (lv_event_get_code(e) == LV_EVENT_RELEASED) saveSettings();
 }
 
 static void night_brightness_slider_event_cb(lv_event_t * e) {
     lv_obj_t * slider = (lv_obj_t *) lv_event_get_target(e);
     night_brightness = (uint8_t) lv_slider_get_value(slider);
+ 
+    if (isNightTime() && nightModeActive) adjustBrightness(night_brightness);
 
-    if (nightModeActive) {      
-      if (isNightTime()) adjustBrightness(night_brightness);
-    } 
+    if (lv_event_get_code(e) == LV_EVENT_RELEASED) saveSettings();
 }
 
 static void no_spoiler_switch_handler(lv_event_t * e) {
@@ -90,10 +94,13 @@ static void no_spoiler_switch_handler(lv_event_t * e) {
 
     force_update_ui();
     //update_ui(nullptr); //maybe add if condition to only update if we're potentially exposed to spoilers?
+
+    saveSettings();
 }
 
 
 static void timezone_roller_event_handler(lv_event_t * e) {
+    if (lv_event_get_code(e) == LV_EVENT_RELEASED) saveSettings();
     if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
     if (!timezoneOverrideActive) return;
     if (!timezoneRoller.hours) return;
@@ -128,6 +135,7 @@ static void timezone_override_switch_handler(lv_event_t * e) {
     }
     // If activating: rollers already reflect current UTCoffset (set during creation),
     // so we just stop future ipapi calls from overwriting.
+    saveSettings();
 }
 
 static void night_mode_switch_handler(lv_event_t * e) {
@@ -146,6 +154,8 @@ static void night_mode_switch_handler(lv_event_t * e) {
         nightModeActive = false;
         adjustBrightness(brightness);
     }
+
+    saveSettings();
 }
 
 
@@ -164,48 +174,19 @@ static void night_mode_roller_event_handler(lv_event_t * e) {
       nightModeTimes.stop_hours = (uint8_t) lv_roller_get_selected(nightModeStopRoller.hours);
       nightModeTimes.stop_minutes = (uint8_t) lv_roller_get_selected(nightModeStopRoller.minutes) * 5;
 
-      Serial.printf("Night Mode Timings: %02d:%02d -> %02d:%02d", nightModeTimes.start_hours, nightModeTimes.start_minutes, nightModeTimes.stop_hours, nightModeTimes.stop_minutes);
+      Serial.printf("[UI] Night Mode Timings: %02d:%02d -> %02d:%02d", nightModeTimes.start_hours, nightModeTimes.start_minutes, nightModeTimes.stop_hours, nightModeTimes.stop_minutes);
     
-      if (nightModeActive) {
-        struct tm timeinfo;
-        if (!getLocalTime(&timeinfo)) return;
-
-        time_t timeEpoch = timegm(&timeinfo);
-
-        if (timeEpoch <= 1000) return;
-
-        // Apply offset in seconds
-        timeEpoch += UTCoffset;
-
-        // Convert back to local tm
-        struct tm adjustedTime;
-        gmtime_r(&timeEpoch, &adjustedTime);
-
-        int now   = adjustedTime.tm_hour * 60 + adjustedTime.tm_min;
-        int start = nightModeTimes.start_hours * 60 + nightModeTimes.start_minutes;
-        int stop  = nightModeTimes.stop_hours  * 60 + nightModeTimes.stop_minutes;
-
-        bool in_range = false;
-        if (start < stop) {
-            // Normal case: same day
-            in_range = (now >= start && now < stop);
-        } else if (start > stop) {
-            // Rollover case: spans midnight
-            in_range = (now >= start || now < stop);
-        } else {
-            // start == stop → full 24h
-            in_range = true;
-        }
-
-        if (in_range) {
-            adjustBrightness(night_brightness);
-        } else {
-            adjustBrightness(brightness);
-        }
+      if (nightModeActive && isNightTime()) {
+        adjustBrightness(night_brightness);
+      } else {
+        adjustBrightness(brightness);
       }
+
+      saveSettings();
     }
 }
 
+// Currently unused, but ready for implementation
 static void reload_clock_event_handler(lv_event_t * e) {
   lv_event_code_t code = lv_event_get_code(e);
   update_internal_clock();
@@ -462,7 +443,7 @@ void animate_results(lv_obj_t * container) {
 }
 
 static void populate_results(lv_obj_t * container, int offset) {
-    Serial.println("Populating Results");
+    //Serial.println("[UI] Populating Results");
     uint32_t delay = 400;
 
     if (current_results != "Qualifying" && current_results != "Sprint Qualifying") {
@@ -473,13 +454,13 @@ static void populate_results(lv_obj_t * container, int offset) {
         DriverStanding * driver = getDriverInfoByNumber(results[idx].driver_number);
 
         if (driver == nullptr) {
-          Serial.printf("Driver not found for number %d, id: %d\n", results[idx].driver_number, idx);
+          Serial.printf("[UI] Driver not found for number %d, id: %d\n", results[idx].driver_number, idx);
           continue; // skip this entry
         }
 
         char driverInitial;
         if (driver->name.length() == 0) {
-          Serial.printf("Driver %d has empty name\n", results[idx].driver_number);
+          Serial.printf("[UI] Driver %d has empty name\n", results[idx].driver_number);
         } else {
           driverInitial = driver->name.charAt(0);
         }
@@ -500,23 +481,7 @@ static void populate_results(lv_obj_t * container, int offset) {
                             gap,
                             driver->constructorId);
 
-        Serial.println("Standings row created and populated");
-
-        // Initial hidden state
-        /*
-        lv_obj_set_style_opa(row, LV_OPA_TRANSP, 0);
-
-        // Fade in
-        lv_anim_t a1;
-        lv_anim_init(&a1);
-        lv_anim_set_var(&a1, row);
-        lv_anim_set_values(&a1, LV_OPA_TRANSP, LV_OPA_COVER);
-        lv_anim_set_time(&a1, delay);
-        lv_anim_set_exec_cb(&a1, (lv_anim_exec_xcb_t)lv_obj_set_style_opa);
-        lv_anim_start(&a1);
-
-        delay += 200; // stagger rows
-        */
+        Serial.println("[UI] Standings row created and populated");
       }
     } else {
         for (int i = 0; i < STANDINGS_PAGE_SIZE; i++) {
@@ -526,13 +491,13 @@ static void populate_results(lv_obj_t * container, int offset) {
         DriverStanding * driver = getDriverInfoByNumber(results[idx].driver_number);
 
         if (driver == nullptr) {
-          Serial.printf("Driver not found for number %d\n", results[idx].driver_number);
+          Serial.printf("[UI] Driver not found for number %d\n", results[idx].driver_number);
           continue; // skip this entry
         }
 
         char driverInitial;
         if (driver->name.length() == 0) {
-          Serial.printf("Driver %d has empty name\n", results[idx].driver_number);
+          Serial.printf("[UI] Driver %d has empty name\n", results[idx].driver_number);
         } else {
           driverInitial = driver->name.charAt(0);
         }
@@ -553,22 +518,6 @@ static void populate_results(lv_obj_t * container, int offset) {
                             "",
                             gap,
                             driver->constructorId);
-
-        // Initial hidden state
-        /*
-        lv_obj_set_style_opa(row, LV_OPA_TRANSP, 0);
-
-        // Fade in
-        lv_anim_t a1;
-        lv_anim_init(&a1);
-        lv_anim_set_var(&a1, row);
-        lv_anim_set_values(&a1, LV_OPA_TRANSP, LV_OPA_COVER);
-        lv_anim_set_time(&a1, delay);
-        lv_anim_set_exec_cb(&a1, (lv_anim_exec_xcb_t)lv_obj_set_style_opa);
-        lv_anim_start(&a1);
-
-        delay += 200; // stagger rows
-        */
       }
     }
 }
@@ -656,10 +605,8 @@ lv_obj_t * create_text(lv_obj_t * parent, const char * icon, const char * txt, i
 
 lv_obj_t * create_language_selector(lv_obj_t * parent) {
   lv_obj_t *obj = create_text(parent, LV_SYMBOL_KEYBOARD, localized_text->language, 1);
-  //lv_obj_set_style_pad_right(obj, 18, LV_PART_MAIN);
 
   lv_obj_t *selector = lv_dropdown_create(obj);
-  //lv_obj_align(language_selector, LV_ALIGN_CENTER, 0, 40);
 
   String language_options;
   for (size_t i = 0; i < languageCount; i++) {
@@ -676,7 +623,6 @@ lv_obj_t * create_language_selector(lv_obj_t * parent) {
       }
   }
   lv_dropdown_set_selected(selector, currentIndex);
-  //lv_obj_add_flag(selector, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
 
   return selector;
 }
@@ -684,13 +630,6 @@ lv_obj_t * create_language_selector(lv_obj_t * parent) {
 lv_obj_t * create_slider(lv_obj_t * parent, const char * icon, const char * txt, int32_t min, int32_t max, int32_t val) {
     lv_obj_t * obj = create_text(parent, icon, txt, 1);
     lv_obj_t * slider = lv_slider_create(obj);
-
-    //lv_obj_set_style_bg_color(slider, lv_color_hex(0x4db8a1), LV_PART_MAIN);
-    //lv_obj_set_style_bg_color(slider, lv_color_hex(WR_COLOR_ELITE_GREEN), LV_PART_INDICATOR);
-    //lv_obj_set_style_bg_color(slider, lv_color_hex(WR_COLOR_ELITE_GREEN), LV_PART_KNOB);
-    
-    //lv_obj_set_style_pad_right(slider, 20, LV_PART_MAIN);
-    //lv_obj_set_style_pad_right(slider, 20, LV_PART_KNOB);
 
     lv_obj_set_style_pad_right(obj, 18, LV_PART_MAIN);
 
@@ -706,21 +645,8 @@ lv_obj_t * create_slider(lv_obj_t * parent, const char * icon, const char * txt,
 lv_obj_t * create_switch(lv_obj_t * parent, const char * icon, const char * txt, bool chk) {
     lv_obj_t * obj = create_text(parent, icon, txt, 1);
     lv_obj_t * sw = lv_switch_create(obj);
-    
-    //static lv_style_t style_on;
-    //lv_style_init(&style_on);
-    // Set the color you want for the "on" state
-    //lv_style_set_bg_color(&style_on, lv_color_hex(WR_COLOR_ELITE_GREEN)); // or use lv_color_hex(0xRRGGBB)
-    //lv_style_set_border_color(&style_on, lv_color_hex(WR_COLOR_ELITE_GREEN));
-    //lv_style_set_border_width(&style_on, 2);  // Adjust as needed
-    // Apply the style only when the switch is "checked"
-    //lv_obj_add_style(sw, &style_on, LV_PART_INDICATOR | LV_STATE_CHECKED);
 
-    if (chk) {
-        lv_obj_add_state(sw, LV_STATE_CHECKED);
-    } else {
-        lv_obj_clear_state(sw, LV_STATE_CHECKED);
-    }
+    halo_set_switch_state(sw, chk);
 
     return sw;
 }
@@ -728,17 +654,10 @@ lv_obj_t * create_switch(lv_obj_t * parent, const char * icon, const char * txt,
 lv_obj_t * create_time_roller(lv_obj_t *parent, const char *icon, const char *text) {
     lv_obj_t * obj = create_text(parent, icon, text, 1);
     lv_obj_t * sw = lv_switch_create(obj);
-    if (nightModeActive) {
-        lv_obj_add_state(sw, LV_STATE_CHECKED);
-    } else {
-        lv_obj_clear_state(sw, LV_STATE_CHECKED);
-    }
-    lv_obj_add_event_cb(sw, night_mode_switch_handler, LV_EVENT_VALUE_CHANGED, NULL);
 
-    //lv_obj_t * cont = lv_obj_create(obj);
-    //lv_obj_remove_style_all(cont);
-    //lv_obj_set_style_width(cont, LV_PCT(100), LV_PART_MAIN | LV_STATE_DEFAULT);
-    //lv_obj_add_flag(cont, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
+    halo_set_switch_state(sw, nightModeActive);
+
+    lv_obj_add_event_cb(sw, night_mode_switch_handler, LV_EVENT_VALUE_CHANGED, NULL);
 
     nightModeStartRoller.hours = lv_roller_create(obj);
     nightModeStartRoller.minutes = lv_roller_create(obj);
@@ -799,8 +718,6 @@ lv_obj_t * create_settings_divider(lv_obj_t *parent, const char *title = nullptr
         LV_FLEX_ALIGN_CENTER,
         LV_FLEX_ALIGN_CENTER);
     lv_obj_remove_flag(wrapper, LV_OBJ_FLAG_SCROLLABLE);
-    // Make sure the wrapper starts on a new flex track in the parent
-    //lv_obj_add_flag(wrapper, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK); //apparently causing to flex in a new column instead of a new row
 
     if (title != nullptr && strlen(title) > 0) {
         lv_obj_t *lbl = lv_label_create(wrapper);
@@ -996,7 +913,6 @@ void create_or_reload_race_sessions(bool force_reload) {
   lv_coord_t row_w = (lv_coord_t)(SCREEN_WIDTH - 4);
 
   // Weather-badge column is only shown when data is available.
-  // 48 px is comfortable for "SUN 22°" in montserrat_12.
   const lv_coord_t WEATHER_W = 48;
 
   for (int i = 0; i < next_race.sessionCount; i++) {
@@ -1116,7 +1032,7 @@ void create_or_reload_race_sessions(bool force_reload) {
           populate_standings(standings_container, 0);
 
           standings_ui_timer = lv_timer_create([](lv_timer_t *t) {
-              Serial.println("Inside Standings Animation Timer");
+              //Serial.println("Inside Standings Animation Timer");
               animate_standings((lv_obj_t *)lv_timer_get_user_data(t));
           }, 15000, standings_container);
       }
@@ -1128,16 +1044,16 @@ void create_or_reload_race_sessions(bool force_reload) {
   if (! hasRaceWeekendStarted()) return;
 
   // race weekend has started
-  Serial.println("Race Weekend Has Started, following with results logic");
+  Serial.println("[UI] Race Weekend Has Started, following with results logic");
 
   current_results = last_session.name;
   Serial.println("Last session name done");
 
   if (last_session.name == "FP1" || last_session.name == "FP2" || last_session.name == "FP3") {
-    Serial.println("Inside FP123");
+    Serial.println("[UI] Inside FP123");
     
     if (! hasFreePracticeFinished(last_session.date, last_session.time)) {
-      Serial.println("Inside FP not finished");
+      Serial.println("[UI] Inside FP not finished");
       check_delay = 5 * 60000; //every 5 minutes
       if (standings_ui_timer) lv_timer_del(standings_ui_timer);
       standings_ui_timer = NULL;
@@ -1156,11 +1072,11 @@ void create_or_reload_race_sessions(bool force_reload) {
       lv_anim_del(&style_fade, NULL); //was standings_container
       lv_obj_clean(standings_container);
 
-      Serial.println("Running Results API Check");
+      Serial.println("[UI] Running Results API Check");
       bool got_results = getLastSessionResults(results);
 
       if (!got_results || !results_loaded_once) {
-        Serial.println("API Check Run but encountered an error");
+        Serial.println("[UI] API Check Run but encountered an error");
         if (last_results != current_results) return;
       } else {
         last_results = current_results;
@@ -1180,9 +1096,9 @@ void create_or_reload_race_sessions(bool force_reload) {
           }, 15000, standings_container);
       }
 
-      Serial.println("Results for Free Practice Rendered");
+      Serial.println("[UI] Results for Free Practice Rendered");
     } else {
-        Serial.println("Not yet time to check for session's results");
+        Serial.println("[UI] Not yet time to check for session's results");
     }
 
     return;
@@ -1198,12 +1114,12 @@ void create_or_reload_race_sessions(bool force_reload) {
   lv_anim_del(&style_fade, NULL); //was standings_container
   lv_obj_clean(standings_container);
 
-  Serial.println("Running Results API Check");
+  Serial.println("[UI] Running Results API Check");
 
   bool got_results = getLastSessionResults(results);
 
   if (!got_results) {
-    Serial.println("API Check Run but encountered an error");
+    Serial.println("[UI] API Check Run but encountered an error");
     if (last_results != current_results) return;
   } else {
     last_results = current_results;
@@ -1234,7 +1150,7 @@ void create_or_reload_race_sessions(bool force_reload) {
 
 // Runs once or when language is changed
 void create_or_reload_race_ui() {
-  Serial.println("Creating or Reloading Race UI...");
+  Serial.println("[UI] Creating or Reloading Race UI...");
   lv_anim_del(tabs.race, NULL);
   lv_anim_del(sessions_container, NULL);
   lv_anim_del(&style_fade, NULL); //was standings_container
@@ -1313,7 +1229,7 @@ void create_or_reload_race_ui() {
   lv_obj_set_scroll_snap_y(standings_container, LV_SCROLL_SNAP_START);
   lv_obj_align(standings_container, LV_ALIGN_TOP_MID, - SCREEN_WIDTH * 0.025, 295);
 
-  Serial.println("Creating or Reloading Race UI -- DONE!");
+  Serial.println("[UI] Creating or Reloading Race UI -- DONE!");
 }
 
 // Runs once every 5 minutes to fetch latest article and update the news tab -- @TODO -> maybe add some flavour to the graphics?
@@ -1330,7 +1246,7 @@ void create_or_reload_news_ui(lv_timer_t *timer) {
         last_link = link;
     }
 
-    Serial.println("It appears we have a winner (news fetched)");
+    Serial.println("[UI] It appears we have a winner (news fetched)");
 
     if (!news_styles_initialized) {
         news_styles_initialized = true;
@@ -1376,7 +1292,7 @@ void create_or_reload_news_ui(lv_timer_t *timer) {
                           LV_FLEX_ALIGN_CENTER); /* track cross axis */
     lv_obj_add_style(cont, &style_news_container, LV_PART_MAIN);
 
-    Serial.println("News Container Created");
+    Serial.println("[UI] News Container Created");
 
     // Title label
     lv_obj_t *label = lv_label_create(cont);
@@ -1386,7 +1302,7 @@ void create_or_reload_news_ui(lv_timer_t *timer) {
     lv_obj_set_width(label, LV_PCT(100));
     lv_obj_add_style(label, &style_news_title, LV_PART_MAIN);
 
-    Serial.println("News Title Label Created");
+    //Serial.println("News Title Label Created");
 
     // Description label
     label = lv_label_create(cont);
@@ -1396,7 +1312,7 @@ void create_or_reload_news_ui(lv_timer_t *timer) {
     lv_obj_set_width(label, LV_PCT(100));
     lv_obj_add_style(label, &style_news_desc, LV_PART_MAIN);
 
-    Serial.println("News Desc Label Created");
+    //Serial.println("News Desc Label Created");
 
     // QR code container
     lv_obj_t *qr_cont = lv_obj_create(cont);
@@ -1417,10 +1333,10 @@ void create_or_reload_news_ui(lv_timer_t *timer) {
     lv_obj_align_to(caption, qr, LV_ALIGN_OUT_BOTTOM_MID, 0, 6);
     lv_label_set_long_mode(caption, LV_LABEL_LONG_MODE_SCROLL_CIRCULAR);
 
-    Serial.println("News QR Code Created");
+    //Serial.println("News QR Code Created");
 
     if (notifyNewArticle) {
-        Serial.println("Article Link is new, running notification routine for new article fetched.");
+        Serial.println("[UI] Article Link is new, running notification routine for new article fetched.");
         playNotificationSound();
         //lv_tabview_set_active(home_tabs, 1, LV_ANIM_ON); // switch to article tab -- place under a bool switch in settings
     }
@@ -1469,6 +1385,7 @@ void create_or_reload_settings_ui() {
   // Brightness
   brightness_slider = create_slider(cont, LV_SYMBOL_IMAGE, localized_text->brightness, 5, 255, brightness);
   lv_obj_add_event_cb(brightness_slider, brightness_slider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+  lv_obj_add_event_cb(brightness_slider, brightness_slider_event_cb, LV_EVENT_RELEASED, NULL);
 
   // Night Mode
   create_time_roller(cont, LV_SYMBOL_EYE_CLOSE, localized_text->night_mode);
@@ -1476,11 +1393,57 @@ void create_or_reload_settings_ui() {
   // Night Mode Brightness
   night_brightness_slider = create_slider(cont, LV_SYMBOL_IMAGE, localized_text->night_brightness, 5, 255, night_brightness);
   lv_obj_add_event_cb(night_brightness_slider, night_brightness_slider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+  lv_obj_add_event_cb(night_brightness_slider, night_brightness_slider_event_cb, LV_EVENT_RELEASED, NULL);
 
   // Restart WiFi Manager Button
+  // Doesn't work currently, maybe can be done by setting a global flag, save it to flash, then restart the device
   //create_button(cont, false, LV_SYMBOL_WIFI "Restart WiFi Manager", restart_wifimanager_event_handler);
 
-  
+  create_settings_divider(cont, nullptr);
+
+  // Show App Version
+    lv_obj_t *version_label = lv_label_create(cont);
+    lv_label_set_text_fmt(version_label, "Halo F1 @ FW Version %s", fw_version);
+    lv_obj_set_style_text_align(version_label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_width(version_label, LV_PCT(100));
+    lv_obj_set_style_text_font(version_label, &montserrat_12, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+  // Show "Made by" with heart icon
+    lv_obj_t *made_by_label = lv_label_create(cont);
+    lv_label_set_text_fmt(made_by_label, "Made with *heart* by Fabio Rossato");
+    lv_obj_set_style_text_align(made_by_label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_width(made_by_label, LV_PCT(100));
+    lv_obj_set_style_text_font(made_by_label, &montserrat_12, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(made_by_label, lv_color_hex(0x555555), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_bottom(made_by_label, 20, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+  // Button "Need Help?" that opens a modal
+    lv_obj_t *help_button = create_button(cont, nullptr, localized_text->need_help_button_text, [](lv_event_t *e) {
+        show_notification_popup(localized_text->help_dialog_title, localized_text->help_dialog_message, "https://discord.gg/qAKaPa5n5m");
+    });
+
+    lv_obj_set_style_margin_bottom(help_button, 20, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+ // Show QR Code with device UUID so the user can scan with the phone to copy
+ // Not needed for now
+    /*lv_obj_t *qr = lv_qrcode_create(cont);
+    lv_qrcode_set_size(qr, 100);
+    String uuid = getDeviceUUID();
+    lv_qrcode_update(qr, uuid.c_str(), uuid.length());
+    lv_obj_center(qr);
+    lv_obj_set_style_border_color(qr, lv_color_white(), 0);
+    lv_obj_set_style_border_width(qr, 5, 0);
+
+    // Caption under QR
+    lv_obj_t *qr_caption = lv_label_create(cont);
+    lv_label_set_text(qr_caption, "Scan QR Code to Copy Device UUID");
+    lv_obj_set_style_text_align(qr_caption, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_width(qr_caption, LV_PCT(100));
+    lv_obj_set_style_text_font(qr_caption, &montserrat_12, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(qr_caption, lv_color_hex(0x555555), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_top(qr_caption, 6, LV_PART_MAIN | LV_STATE_DEFAULT);
+    */
+
 }
 
 // Runs once
@@ -1549,6 +1512,24 @@ void create_ui_skeleton() {
   lv_obj_set_width(label, SCREEN_WIDTH);
   lv_label_set_long_mode(label, LV_LABEL_LONG_MODE_WRAP); 
   lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+
+  lv_obj_t *qr = lv_qrcode_create(screen.wifi);
+  lv_qrcode_set_size(qr, 100);
+  String discord_invite = "https://discord.gg/qAKaPa5n5m";
+  lv_qrcode_update(qr, discord_invite.c_str(), discord_invite.length());
+  lv_obj_set_style_border_color(qr, lv_color_white(), 0);
+  lv_obj_set_style_border_width(qr, 5, 0);
+  lv_obj_align(qr, LV_ALIGN_TOP_MID, 0, 20);
+
+  // Caption under QR
+  lv_obj_t *qr_caption = lv_label_create(screen.wifi);
+  lv_label_set_text(qr_caption, localized_text->wifi_help_qr_caption);
+  lv_obj_set_style_text_align(qr_caption, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_width(qr_caption, LV_PCT(100));
+  lv_obj_set_style_text_font(qr_caption, &montserrat_12, LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_text_color(qr_caption, lv_color_hex(0x555555), LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_align(qr_caption, LV_ALIGN_TOP_MID, 0, 150);
+    
 
   home_tabs = create_main_tabview(screen.home);
 

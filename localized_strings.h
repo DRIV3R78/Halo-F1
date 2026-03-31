@@ -49,6 +49,10 @@ typedef struct {
   const char* display;
   const char* time_settings;
   const char* enable_timezone_override;
+  const char* need_help_button_text;
+  const char* help_dialog_title;
+  const char* help_dialog_message;
+  const char* wifi_help_qr_caption;
 } LanguageStrings;
 
 const LanguageStrings language_strings_en PROGMEM = {
@@ -76,8 +80,8 @@ const LanguageStrings language_strings_en PROGMEM = {
   "Q2",
   "Q3",
   "Race",
-  "Sprint Race",
-  "Sprint Qualy",
+  "Race", // was "Sprint Race"
+  "Qualifying", // was "Sprint Qualy"
   "Free Practice",
   "Free Practice 1",
   "Free Practice 2",
@@ -102,6 +106,10 @@ const LanguageStrings language_strings_en PROGMEM = {
   "Display",
   "Time",
   "Enable Timezone Override",
+  LV_SYMBOL_CHARGE " Need Help? Click here!",
+  LV_SYMBOL_CHARGE " We got you!",
+  "Scan to join our Discord server and get support!",
+  LV_SYMBOL_CHARGE " Need Help? We got you!Scan to join our Discord server and get support!",
 };
 
 const LanguageStrings language_strings_it PROGMEM = {
@@ -129,8 +137,8 @@ const LanguageStrings language_strings_it PROGMEM = {
   "Q2",
   "Q3",
   "Gara",
-  "Gara Sprint",
-  "Qual Sprint",
+  "Gara", // sprint race
+  "Qualifiche", // sprint qualifying
   "Prove Libere",
   "Prove Libere 1",
   "Prove Libere 2",
@@ -155,6 +163,10 @@ const LanguageStrings language_strings_it PROGMEM = {
   "Schermo",
   "Orario",
   "Abilita Override Fuso Orario",
+  LV_SYMBOL_CHARGE " Serve aiuto? Clicca qui!",
+  LV_SYMBOL_CHARGE " Ci pensiamo noi!",
+  "Scansiona per unirti al nostro server Discord e ricevere supporto!",
+  LV_SYMBOL_CHARGE " Serve aiuto? Ci pensiamo noi! Scansiona per unirti al nostro server Discord e ricevere supporto!",
 };
 
 const LanguageStrings language_strings_es PROGMEM = {
@@ -182,8 +194,8 @@ const LanguageStrings language_strings_es PROGMEM = {
   "Q2",
   "Q3",
   "Carrera",
-  "Carrera Sprint",
-  "Clasificacion Sprint",
+  "Carrera", // sprint race
+  "Clasificacion", // sprint qualifying
   "Entrenamiento libre",
   "Entrenamiento libre 1",
   "Entrenamiento libre 2",
@@ -208,6 +220,10 @@ const LanguageStrings language_strings_es PROGMEM = {
   "Pantalla",
   "Orario",
   "Abilita Override Fuso Orario",
+  LV_SYMBOL_CHARGE " ¿Necesitas ayuda?",
+  LV_SYMBOL_CHARGE " ¡Te tenemos cubierto!",
+  "¡Escanea para unirte a nuestro servidor de Discord y obtener soporte!",
+  LV_SYMBOL_CHARGE " ¿Necesitas ayuda? ¡Te tenemos cubierto! Escanea para unirte a nuestro servidor de Discord y obtener soporte!",
 };
 
 const LanguageStrings language_strings_fr PROGMEM = {
@@ -235,8 +251,8 @@ const LanguageStrings language_strings_fr PROGMEM = {
   "Q2",
   "Q3",
   "Course",
-  "Course Sprint",
-  "Qualifications Sprint",
+  "Course", // sprint race
+  "Qualifications", // sprint qualifying
   "Essais libres",
   "Essais libres 1",
   "Essais libres 2",
@@ -261,6 +277,10 @@ const LanguageStrings language_strings_fr PROGMEM = {
   "Affichage",
   "Heure",
   "Activer le Override de Fuseau Horaire",
+  LV_SYMBOL_CHARGE " Besoin d'aide? Cliquez ici!",
+  LV_SYMBOL_CHARGE " On s'occupe de vous!",
+  "Scannez pour rejoindre notre serveur Discord et obtenir de l'aide!",
+  LV_SYMBOL_CHARGE " Besoin d'aide? On s'occupe de vous! Scannez pour rejoindre notre serveur Discord et obtenir de l'aide!",
 };
 
 const LanguageStrings language_strings_nl PROGMEM = {
@@ -288,8 +308,8 @@ const LanguageStrings language_strings_nl PROGMEM = {
   "Q2",
   "Q3",
   "Race",
-  "Sprintrace",
-  "Sprintkwalificatie",
+  "Race", // sprint race
+  "Kwalificatie", // sprint qualifying
   "Vrije training",
   "Vrije training 1",
   "Vrije training 2",
@@ -314,6 +334,10 @@ const LanguageStrings language_strings_nl PROGMEM = {
   "Scherm",
   "Tijd",
   "Tijdzone Override Inschakelen",
+  LV_SYMBOL_CHARGE " Heb je hulp nodig? Klik hier!",
+  LV_SYMBOL_CHARGE " We hebben je gedekt!",
+  "Scan om lid te worden van onze Discord-server en ondersteuning te krijgen!",
+  LV_SYMBOL_CHARGE " Heb je hulp nodig? We hebben je gedekt! Scan om lid te worden van onze Discord-server en ondersteuning te krijgen!",
 };
 
 const LanguageStrings language_strings_de PROGMEM = {
@@ -341,8 +365,8 @@ const LanguageStrings language_strings_de PROGMEM = {
   "Q2",
   "Q3",
   "Rennen",
-  "Sprintrennen",
-  "Sprint-Qualifying",
+  "Rennen", // sprint race
+  "Qualifying", // sprint qualifying
   "Freies Training",
   "Freies Training 1",
   "Freies Training 2",
@@ -367,6 +391,10 @@ const LanguageStrings language_strings_de PROGMEM = {
   "Anzeige",
   "Zeit",
   "Zeitzonen-Override Aktivieren",
+  LV_SYMBOL_CHARGE " Brauchen Sie Hilfe?",
+  LV_SYMBOL_CHARGE " Wir haben Sie abgedeckt!",
+  "Scannen Sie, um unserem Discord-Server beizutreten und Unterstützung zu erhalten!",
+  LV_SYMBOL_CHARGE " Brauchen Sie Hilfe? Wir haben Sie abgedeckt! Scannen Sie, um unserem Discord-Server beizutreten und Unterstützung zu erhalten!",
 };
 
 const LanguageStrings language_strings_pt PROGMEM = {
@@ -394,8 +422,8 @@ const LanguageStrings language_strings_pt PROGMEM = {
   "Q2",
   "Q3",
   "Corrida",
-  "Corrida Sprint",
-  "Classificação Sprint",
+  "Corrida", // sprint race
+  "Classificação", // sprint qualifying
   "Treino Livre",
   "Treino Livre 1",
   "Treino Livre 2",
@@ -420,6 +448,10 @@ const LanguageStrings language_strings_pt PROGMEM = {
   "Tela",
   "Hora",
   "Ativar Override de Fuso Horário",
+  LV_SYMBOL_CHARGE " Precisa de ajuda?",
+  LV_SYMBOL_CHARGE " Nós te cobrimos!",
+  "Escaneie para entrar no nosso servidor Discord e obter suporte!",
+  LV_SYMBOL_CHARGE " Precisa de ajuda? Nós te cobrimos! Escaneie para entrar no nosso servidor Discord e obter suporte!",
 };
 
 const LanguageStrings language_strings_no PROGMEM = {
@@ -447,8 +479,8 @@ const LanguageStrings language_strings_no PROGMEM = {
   "Q2",
   "Q3",
   "Løp",
-  "Sprintløp",
-  "Sprintkvalifisering",
+  "Løp", // sprint race
+  "Kvalifisering", // sprint qualifying
   "Trening",
   "Trening 1",
   "Trening 2",
@@ -473,6 +505,10 @@ const LanguageStrings language_strings_no PROGMEM = {
   "Skjerm",
   "Tid",
   "Aktiver Tidszone Override",
+  LV_SYMBOL_CHARGE " Trenger du hjelp? Klikk her!",
+  LV_SYMBOL_CHARGE " Vi har deg dekket!",
+  "Skann for å bli med i vår Discord-server og få støtte!",
+  LV_SYMBOL_CHARGE " Trenger du hjelp? Vi har deg dekket! Skann for å bli med i vår Discord-server og få støtte!",
 };
 
 const LanguageStrings language_strings_pl PROGMEM = {
@@ -526,6 +562,10 @@ const LanguageStrings language_strings_pl PROGMEM = {
   "Wyswietlacz",
   "Czas",
   "Aktywuj Nadpisanie Strefy Czasowej",
+  LV_SYMBOL_CHARGE " Potrzebujesz pomocy?",
+  LV_SYMBOL_CHARGE " Mamy Cie!",
+  "Skanuj, aby dolaczyc do naszego serwera Discord i uzyskac wsparcie!",
+  LV_SYMBOL_CHARGE " Potrzebujesz pomocy? Mamy Cie! Skanuj, aby dolaczyc do naszego serwera Discord i uzyskac wsparcie!",
 };
 
 uint32_t get_team_color(String team) {
