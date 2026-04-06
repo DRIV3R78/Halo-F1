@@ -1,0 +1,55 @@
+name: Build F1Halo
+
+on:
+    release:
+        types: [published, created, edited]
+
+    # Allows you to run this workflow manually from the Actions tab on any branch
+    workflow_dispatch:
+
+jobs:
+    compile:
+        name: Build (${{ matrix.touch }} touch)
+        runs-on: ubuntu-latest
+
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - touch: capacitive
+                      define_touch: true
+                    - touch: resistive
+                      define_touch: false
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Remove TOUCH_CAPACITIVE define (resistive build)
+              if: ${{ matrix.define_touch == false }}
+              run: |
+                  sed -i 's|^#define TOUCH_CAPACITIVE$|// #define TOUCH_CAPACITIVE|' F1Halo.ino
+
+            - name: Compile sketch
+              uses: arduino/compile-sketches@v1
+              with:
+                  fqbn: "esp32:esp32:esp32s3:PartitionScheme=huge_app,CDCOnBoot=cdc,PSRAM=opi,FlashSize=4M"
+                  platforms: |
+                      - name: esp32:esp32
+                        source-url: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+                        version: 3.3.4
+                  libraries: |
+                      - name: ArduinoJson
+                      - name: WiFiManager
+                      - name: lvgl
+                        version: 9.3.0
+                      - name: bb_spi_lcd
+                        version: 2.7.1
+                      - name: bb_captouch
+                  sketch-paths: |
+                      - ./
+                  cli-compile-flags: |
+                      - --build-property
+                      - "compiler.cpp.extra_flags=-DLV_CONF_INCLUDE_SIMPLE"
+                      - --build-property
+                      - "compiler.c.extra_flags=-DLV_CONF_INCLUDE_SIMPLE"
