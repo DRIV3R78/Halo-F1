@@ -32,7 +32,7 @@ jobs:
               if: ${{ matrix.define_touch == false }}
               run: |
                   sed -i 's|^#define TOUCH_CAPACITIVE$|// #define TOUCH_CAPACITIVE|' Halo-F1.ino
-
+            
             - name: Compile sketch
               uses: arduino/compile-sketches@v1
               with:
@@ -57,15 +57,25 @@ jobs:
                       - "compiler.cpp.extra_flags=-DLV_CONF_INCLUDE_SIMPLE -Wa,-I{build.source.path}"
                       - --build-property
                       - "compiler.c.extra_flags=-DLV_CONF_INCLUDE_SIMPLE -Wa,-I{build.source.path}"
-                      - --output-dir
-                      - ./build
 
             - name: Rename binary
               run: |
-                  FILE=$(ls ./build/*.merged.bin 2>/dev/null | head -1 || ls ./build/*.bin | head -1)
-                  mv "$FILE" ./build/Halo-F1-${{ matrix.touch }}.bin
+                  echo "Searching for compiled binaries..."
+                  find . -name "*.merged.bin" -o -name "*.ino.bin" 2>/dev/null | grep -v ".git"
 
-                        
+                  FILE=$(find . -name "*.merged.bin" 2>/dev/null | grep -v ".git" | head -1)
+                  if [ -z "$FILE" ]; then
+                    FILE=$(find . -name "*.ino.bin" 2>/dev/null | grep -v ".git" | grep -v "bootloader\|partitions\|boot_app" | head -1)
+                  fi
+                  if [ -z "$FILE" ]; then
+                    echo "ERROR: No binary found anywhere in workspace"
+                    exit 1
+                  fi
+
+                  mkdir -p ./build
+                  cp "$FILE" ./build/Halo-F1-${{ matrix.touch }}.bin
+                  echo "Copied: $FILE -> ./build/Halo-F1-${{ matrix.touch }}.bin"
+             
             - name: Upload artifact
               uses: actions/upload-artifact@v4
               with:
