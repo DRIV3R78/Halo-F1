@@ -1,8 +1,9 @@
 name: Build Halo F1
 
 on:
-    release:
-        types: [published, created, edited]
+    # commenting out as it doesn't produce usable binaries atm
+    #release:
+        #types: [published, created, edited]
 
     # Allows you to run this workflow manually from the Actions tab on any branch
     workflow_dispatch:
