@@ -61,6 +61,19 @@ static void language_selection_event_handler(lv_event_t * e) {
   saveSettings();
 }
 
+static void news_feed_selection_event_handler(lv_event_t * e) {
+  lv_obj_t* obj = (lv_obj_t *)lv_event_get_target(e);
+  uint16_t sel = lv_dropdown_get_selected(obj);
+
+  if (sel < NEWS_FEED_COUNT) {
+      selectedNewsFeed = (uint8_t)sel;
+      Serial.printf("[UI] News feed changed to: %s\n", newsFeedNames[selectedNewsFeed]);
+      create_or_reload_news_ui(nullptr);
+  }
+
+  saveSettings();
+}
+
 static void msgbox_close_event_handler(lv_event_t * e) {
   lv_event_code_t code = lv_event_get_code(e);
   lv_obj_t * btn = lv_event_get_target_obj(e);
@@ -631,6 +644,25 @@ lv_obj_t * create_language_selector(lv_obj_t * parent) {
       }
   }
   lv_dropdown_set_selected(selector, currentIndex);
+
+  return selector;
+}
+
+lv_obj_t * create_news_feed_selector(lv_obj_t * parent) {
+  lv_obj_t *obj = create_text(parent, LV_SYMBOL_LIST, "News Feed", 1);
+  lv_obj_t *selector = lv_dropdown_create(obj);
+
+  String news_feed_options;
+  for (uint8_t i = 0; i < NEWS_FEED_COUNT; i++) {
+      news_feed_options += newsFeedNames[i];
+      if (i < NEWS_FEED_COUNT - 1) news_feed_options += "\n";
+  }
+  lv_dropdown_set_options(selector, news_feed_options.c_str());
+
+  if (selectedNewsFeed >= NEWS_FEED_COUNT) selectedNewsFeed = 0;
+  lv_dropdown_set_selected(selector, selectedNewsFeed);
+  lv_obj_add_flag(selector, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
+  lv_obj_set_width(selector, LV_PCT(100));
 
   return selector;
 }
@@ -1251,8 +1283,25 @@ void create_or_reload_news_ui(lv_timer_t *timer) {
     static String last_link = "";
     bool notifyNewArticle = false;
 
-    if (!getLatestNews(title, link, desc)) return;
-    if ((title == "" && desc == "") || link == "") return;
+    // Always clear the tab first so feed switches never leave stale content visible.
+    lv_obj_clean(tabs.news);
+
+    if (!getLatestNews(title, link, desc) || (title == "" && desc == "") || link == "") {
+        lv_obj_t *cont = lv_obj_create(tabs.news);
+        lv_obj_remove_style_all(cont);
+        lv_obj_set_size(cont, LV_PCT(100), LV_PCT(100));
+        lv_obj_center(cont);
+        lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
+        lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+        lv_obj_t *label = lv_label_create(cont);
+        lv_label_set_text(label, localized_text->news_unavailable_for_selected_feed);
+        lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_width(label, LV_PCT(90));
+        lv_label_set_long_mode(label, LV_LABEL_LONG_MODE_WRAP);
+
+        return;
+    }
 
     if (last_link != link) {
         notifyNewArticle = true;
@@ -1291,9 +1340,6 @@ void create_or_reload_news_ui(lv_timer_t *timer) {
         lv_style_set_width(&style_qr_caption, 100);
     }
 
-    // Clean container
-    lv_obj_clean(tabs.news);
-
     lv_obj_t *cont = lv_obj_create(tabs.news);
     lv_obj_remove_style_all(cont);
     lv_obj_set_size(cont, LV_PCT(100), LV_PCT(100));
@@ -1314,8 +1360,6 @@ void create_or_reload_news_ui(lv_timer_t *timer) {
     lv_obj_set_height(label, LV_SIZE_CONTENT);
     lv_obj_set_width(label, LV_PCT(100));
     lv_obj_add_style(label, &style_news_title, LV_PART_MAIN);
-
-    //Serial.println("News Title Label Created");
 
     // Description label
     label = lv_label_create(cont);
@@ -1385,6 +1429,10 @@ void create_or_reload_settings_ui() {
 
   // -- Race Settings --
   create_settings_divider(cont, localized_text->race);
+  // News Feed Source
+  news_feed_selector = create_news_feed_selector(cont);
+  lv_obj_add_event_cb(news_feed_selector, news_feed_selection_event_handler, LV_EVENT_VALUE_CHANGED, NULL);
+
   // No Spoiler Mode
   no_spoiler_switch = create_switch(cont, LV_SYMBOL_WARNING, localized_text->no_spoiler_mode, noSpoilerModeActive);
   lv_obj_add_event_cb(no_spoiler_switch, no_spoiler_switch_handler, LV_EVENT_VALUE_CHANGED, NULL);
