@@ -4,82 +4,86 @@ bool fetchLatestNews(String &title, String &link, String &desc) {
   client.setInsecure();
 
   HTTPClient http;
-  http.begin(client, "https://www.the-race.com/category/formula-1/rss/");
+  uint8_t feedIndex = selectedNewsFeed < NEWS_FEED_COUNT ? selectedNewsFeed : 0;
+  http.begin(client, newsFeedUrls[feedIndex]);
 
   int httpCode = http.GET();
   if (httpCode != HTTP_CODE_OK) {
-    Serial.printf("[News] HTTP error: %d\n", httpCode);
+    Serial.printf("[News] HTTP error: %d (feed: %s)\n", httpCode, newsFeedNames[feedIndex]);
     http.end();
     return false;
   }
 
-  WiFiClient *stream = http.getStreamPtr();
+  String payload = http.getString();
 
-  String line;
-  bool inItem = false;
-  int lineNum = 0, itemLine = 0;
-  int itemPos = -1;
+  http.end();
 
   title = "";
   link = "";
   desc = "";
 
-  bool title_parsed = false, link_parsed = false, desc_parsed = false;
+  int itemStart = payload.indexOf("<item");
+  if (itemStart < 0) itemStart = payload.indexOf("<entry");
+  if (itemStart < 0) return false;
 
-  while (stream->connected() && stream->available()) {
-    line = stream->readStringUntil('\n');
-    lineNum++;
-    itemPos = 0;
+  int itemTagClose = payload.indexOf(">", itemStart);
+  if (itemTagClose < 0) return false;
 
-    Serial.printf("[News] Line %d: %s\n", lineNum, line.c_str());
+  int itemEnd = payload.indexOf("</item>", itemTagClose);
+  if (itemEnd < 0) itemEnd = payload.indexOf("</entry>", itemTagClose);
+  if (itemEnd < 0) return false;
 
-    if (line.indexOf("<item>") >= 0) {
-      inItem = true;
-      itemLine = lineNum;
-      itemPos = line.indexOf("<item>");
-      Serial.printf("[News] Line of Item: %d, Index Of Item: %d\n", itemLine, itemPos);
+  String firstItem = payload.substring(itemTagClose + 1, itemEnd);
+
+  auto getTagContent = [](const String &src, const String &tag) -> String {
+    String open = "<" + tag + ">";
+    String close = "</" + tag + ">";
+    int start = src.indexOf(open);
+    if (start < 0) return "";
+    start += open.length();
+    int end = src.indexOf(close, start);
+    if (end < 0 || end <= start) return "";
+    String out = src.substring(start, end);
+    out.trim();
+    if (out.startsWith("<![CDATA[")) {
+      out = out.substring(9);
+      int cdataEnd = out.indexOf("]]>");
+      if (cdataEnd >= 0) out = out.substring(0, cdataEnd);
     }
+    out.trim();
+    return out;
+  };
 
-    if (inItem) {
-      if (line.indexOf("<title>", itemPos) >= 0 && title.length() == 0) {
-        int start = line.indexOf("<title><![CDATA[", itemPos) + 16;
-        int end   = line.indexOf("]]></title>", itemPos);
-        if (end > start) title = line.substring(start, end);
-        title_parsed = true;
-        Serial.println("[News] Title parsed");
-      }
+  title = getTagContent(firstItem, "title");
+  link = getTagContent(firstItem, "link");
+  desc = getTagContent(firstItem, "description");
 
-      if (line.indexOf("<description>", itemPos) >= 0 && desc.length() == 0) {
-        int start = line.indexOf("<description><![CDATA[", itemPos) + 22;
-        int end   = line.indexOf("]]></description>", itemPos);
-        if (end > start) {
-          desc = line.substring(start, end);
-          if (desc.length() > 300) desc = desc.substring(0, 300) + "...";
+  // Atom feeds often use <link href="..."/> instead of <link>...</link>
+  if (link.length() == 0) {
+    int linkTagStart = firstItem.indexOf("<link");
+    if (linkTagStart >= 0) {
+      int linkTagEnd = firstItem.indexOf(">", linkTagStart);
+      if (linkTagEnd > linkTagStart) {
+        String linkTag = firstItem.substring(linkTagStart, linkTagEnd + 1);
+        int hrefStart = linkTag.indexOf("href=\"");
+        if (hrefStart >= 0) {
+          hrefStart += 6;
+          int hrefEnd = linkTag.indexOf("\"", hrefStart);
+          if (hrefEnd > hrefStart) link = linkTag.substring(hrefStart, hrefEnd);
         }
-        desc_parsed = true;
-        Serial.println("[News] Desc parsed");
       }
-
-      if (line.indexOf("<link>", itemPos) >= 0 && link.length() == 0) {
-        int start = line.indexOf("<link>", itemPos) + 6;
-        int end   = line.indexOf("</link>", itemPos);
-        if (end > start) link = line.substring(start, end);
-        link_parsed = true;
-        Serial.println("[News] Link parsed");
-      }
-
-      if (link_parsed && desc_parsed && title_parsed) {
-        break; // Stop after the first item
-      }
-
     }
   }
 
-  http.end();
+  // Some feeds use <summary> instead of <description>
+  if (desc.length() == 0) desc = getTagContent(firstItem, "summary");
+
+  if (desc.length() > 300) desc = desc.substring(0, 300) + "...";
 
   if (link == "") return false;
   if (title == "" && desc == "") return false;
 
+  Serial.println("[News] Feed: " + String(newsFeedNames[feedIndex]));
   Serial.println("[News] Title: " + title);
   Serial.println("[News] Link: " + link);
   Serial.println("[News] Desc: " + desc);
