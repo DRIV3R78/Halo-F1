@@ -1,3 +1,69 @@
+// Decode common RSS HTML entities and normalize special characters so they render
+// consistently on embedded fonts that may not include all Unicode glyphs.
+static String normalizeNewsText(String text) {
+  // Basic HTML entities
+  text.replace("&amp;", "&");
+  text.replace("&lt;", "<");
+  text.replace("&gt;", ">");
+  text.replace("&quot;", "\"");
+  text.replace("&#39;", "'");
+  text.replace("&apos;", "'");
+  text.replace("&nbsp;", " ");
+
+  // German umlauts / sharp s from HTML entities
+  text.replace("&auml;", "ae");
+  text.replace("&ouml;", "oe");
+  text.replace("&uuml;", "ue");
+  text.replace("&Auml;", "Ae");
+  text.replace("&Ouml;", "Oe");
+  text.replace("&Uuml;", "Ue");
+  text.replace("&szlig;", "ss");
+
+  // Also handle numeric entities often used by feeds
+  text.replace("&#228;", "ae");
+  text.replace("&#246;", "oe");
+  text.replace("&#252;", "ue");
+  text.replace("&#196;", "Ae");
+  text.replace("&#214;", "Oe");
+  text.replace("&#220;", "Ue");
+  text.replace("&#223;", "ss");
+
+  // UTF-8 umlauts / sharp s
+  text.replace("\xC3\xA4", "ae");
+  text.replace("\xC3\xB6", "oe");
+  text.replace("\xC3\xBC", "ue");
+  text.replace("\xC3\x84", "Ae");
+  text.replace("\xC3\x96", "Oe");
+  text.replace("\xC3\x9C", "Ue");
+  text.replace("\xC3\x9F", "ss");
+
+  // Common mojibake fallback if UTF-8 was interpreted as latin1 somewhere upstream
+  text.replace("\xC3\x83\xC2\xA4", "ae");
+  text.replace("\xC3\x83\xC2\xB6", "oe");
+  text.replace("\xC3\x83\xC2\xBC", "ue");
+  text.replace("\xC3\x83\xE2\x80\x9E", "Ae");
+  text.replace("\xC3\x83\xE2\x80\x93", "Oe");
+  text.replace("\xC3\x83\xE2\x80\x9C", "Ue");
+  text.replace("\xC3\x83\xC5\xB8", "ss");
+
+  // Remove simple HTML tags that occasionally leak from feeds
+  while (true) {
+    int tagStart = text.indexOf("<");
+    if (tagStart < 0) break;
+    int tagEnd = text.indexOf(">", tagStart);
+    if (tagEnd < 0) break;
+    text.remove(tagStart, (tagEnd - tagStart) + 1);
+  }
+
+  // Normalize whitespace
+  text.replace("\r", " ");
+  text.replace("\n", " ");
+  while (text.indexOf("  ") >= 0) text.replace("  ", " ");
+  text.trim();
+
+  return text;
+}
+
 // Tries once to fetch the latest news
 bool fetchLatestNews(String &title, String &link, String &desc) {
   WiFiClientSecure client;
@@ -77,6 +143,9 @@ bool fetchLatestNews(String &title, String &link, String &desc) {
 
   // Some feeds use <summary> instead of <description>
   if (desc.length() == 0) desc = getTagContent(firstItem, "summary");
+
+  title = normalizeNewsText(title);
+  desc  = normalizeNewsText(desc);
 
   if (desc.length() > 300) desc = desc.substring(0, 300) + "...";
 
