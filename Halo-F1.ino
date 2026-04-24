@@ -3,9 +3,8 @@ const int DRIVERS_NUMBER = 22;
 // ESP32 Boards used v3.3.4
 
 // fix the results api for when there are changes that result in a lesser number of drivers
-// add other rss feed in other languages
+// add more rss feeds and improve feed localization
 // add language switcher to wifi setup screen --> not applicable right now
-// settings: make user decide if they want to see drivers standings, constructors or both one after the other in the main page (select tool)
 // settings: add bool switch to control if tabs should be switched to news when a new article is fetched
 
 #define DISPLAY_TYPE DISPLAY_CYD_543
