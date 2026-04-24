@@ -83,19 +83,6 @@ static void news_pulse_switch_handler(lv_event_t * e) {
     saveSettings();
 }
 
-static void home_tab_changed_handler(lv_event_t * e) {
-    if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
-    if (!home_tabs) return;
-
-    uint32_t active = lv_tabview_get_tab_active(home_tabs);
-    if (active == NEWS_TAB_INDEX) {
-        hasUnreadNews = false;
-        stop_news_tab_pulse();
-    } else if (hasUnreadNews && newsPulseEnabled) {
-        start_news_tab_pulse();
-    }
-}
-
 static void news_tab_button_clicked_handler(lv_event_t * e) {
     if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
     hasUnreadNews = false;
@@ -693,12 +680,25 @@ lv_obj_t * create_language_selector(lv_obj_t * parent) {
 
   lv_obj_t *selector = lv_dropdown_create(obj);
 
-  String language_options;
+  char language_options[256];
+  size_t used = 0;
+  language_options[0] = '\0';
   for (size_t i = 0; i < languageCount; i++) {
-      language_options += languages[i].displayName;
-      if (i < languageCount - 1) language_options += "\n";
+      int written = snprintf(
+          language_options + used,
+          sizeof(language_options) - used,
+          (i < languageCount - 1) ? "%s\n" : "%s",
+          languages[i].displayName
+      );
+      if (written < 0) break;
+      if ((size_t)written >= sizeof(language_options) - used) {
+          used = sizeof(language_options) - 1;
+          language_options[used] = '\0';
+          break;
+      }
+      used += (size_t)written;
   }
-  lv_dropdown_set_options(selector, language_options.c_str());
+  lv_dropdown_set_options(selector, language_options);
 
   size_t currentIndex = 0;
   for (size_t i = 0; i < languageCount; i++) {
@@ -713,15 +713,28 @@ lv_obj_t * create_language_selector(lv_obj_t * parent) {
 }
 
 lv_obj_t * create_news_feed_selector(lv_obj_t * parent) {
-  lv_obj_t *obj = create_text(parent, LV_SYMBOL_LIST, "News Feed", 1);
+  lv_obj_t *obj = create_text(parent, LV_SYMBOL_LIST, localized_text->news_feed_label, 1);
   lv_obj_t *selector = lv_dropdown_create(obj);
 
-  String news_feed_options;
+  char news_feed_options[192];
+  size_t used = 0;
+  news_feed_options[0] = '\0';
   for (uint8_t i = 0; i < NEWS_FEED_COUNT; i++) {
-      news_feed_options += newsFeedNames[i];
-      if (i < NEWS_FEED_COUNT - 1) news_feed_options += "\n";
+      int written = snprintf(
+          news_feed_options + used,
+          sizeof(news_feed_options) - used,
+          (i < NEWS_FEED_COUNT - 1) ? "%s\n" : "%s",
+          newsFeedNames[i]
+      );
+      if (written < 0) break;
+      if ((size_t)written >= sizeof(news_feed_options) - used) {
+          used = sizeof(news_feed_options) - 1;
+          news_feed_options[used] = '\0';
+          break;
+      }
+      used += (size_t)written;
   }
-  lv_dropdown_set_options(selector, news_feed_options.c_str());
+  lv_dropdown_set_options(selector, news_feed_options);
 
   if (selectedNewsFeed >= NEWS_FEED_COUNT) selectedNewsFeed = 0;
   lv_dropdown_set_selected(selector, selectedNewsFeed);
@@ -1514,7 +1527,7 @@ void create_or_reload_settings_ui() {
   no_spoiler_switch = create_switch(cont, LV_SYMBOL_WARNING, localized_text->no_spoiler_mode, noSpoilerModeActive);
   lv_obj_add_event_cb(no_spoiler_switch, no_spoiler_switch_handler, LV_EVENT_VALUE_CHANGED, NULL);
   // News pulse effect
-  news_pulse_switch = create_switch(cont, LV_SYMBOL_BELL, "News Pulse Effect", newsPulseEnabled);
+  news_pulse_switch = create_switch(cont, LV_SYMBOL_BELL, localized_text->news_pulse_effect_label, newsPulseEnabled);
   lv_obj_add_event_cb(news_pulse_switch, news_pulse_switch_handler, LV_EVENT_VALUE_CHANGED, NULL);
 
   // -- Timezone Settings --
@@ -1787,8 +1800,6 @@ lv_obj_t * create_main_tabview(lv_obj_t * screen) {
             lv_obj_add_event_cb(news_tab_button, news_tab_button_clicked_handler, LV_EVENT_CLICKED, NULL);
         }
     }
-
-    lv_obj_add_event_cb(tabview, home_tab_changed_handler, LV_EVENT_VALUE_CHANGED, NULL);
 
     return tabview;
 }
