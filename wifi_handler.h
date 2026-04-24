@@ -80,26 +80,57 @@ bool fetchLatestNews(String &title, String &link, String &desc) {
     return false;
   }
 
-  String payload = http.getString();
-
-  http.end();
-
   title = "";
   link = "";
   desc = "";
 
-  int itemStart = payload.indexOf("<item");
-  if (itemStart < 0) itemStart = payload.indexOf("<entry");
-  if (itemStart < 0) return false;
+  // Stream-based parsing to avoid loading the full feed in RAM.
+  // We only buffer the first <item> or <entry> block with a hard size cap.
+  WiFiClient *stream = http.getStreamPtr();
+  String firstItem = "";
+  const size_t MAX_FIRST_ITEM_BUFFER = 24 * 1024; // safety cap for ESP32 RAM
 
-  int itemTagClose = payload.indexOf(">", itemStart);
-  if (itemTagClose < 0) return false;
+  bool inItem = false;
+  const char *endTag = nullptr;
+  unsigned long lastDataAt = millis();
 
-  int itemEnd = payload.indexOf("</item>", itemTagClose);
-  if (itemEnd < 0) itemEnd = payload.indexOf("</entry>", itemTagClose);
-  if (itemEnd < 0) return false;
+  while (stream->connected() || stream->available()) {
+    if (!stream->available()) {
+      // Don't block forever on stalled connections.
+      if (millis() - lastDataAt > 5000) break;
+      delay(1);
+      continue;
+    }
 
-  String firstItem = payload.substring(itemTagClose + 1, itemEnd);
+    String line = stream->readStringUntil('\n');
+    lastDataAt = millis();
+
+    if (!inItem) {
+      int itemPos = line.indexOf("<item");
+      int entryPos = line.indexOf("<entry");
+      if (itemPos >= 0 || entryPos >= 0) {
+        inItem = true;
+        endTag = (entryPos >= 0 && (itemPos < 0 || entryPos < itemPos)) ? "</entry>" : "</item>";
+      }
+    }
+
+    if (!inItem) continue;
+
+    if (firstItem.length() + line.length() + 1 > MAX_FIRST_ITEM_BUFFER) {
+      Serial.println("[News] First item exceeded buffer cap, aborting parse.");
+      http.end();
+      return false;
+    }
+
+    firstItem += line;
+    firstItem += '\n';
+
+    if (endTag && firstItem.indexOf(endTag) >= 0) break;
+  }
+
+  http.end();
+
+  if (!inItem || firstItem.length() == 0) return false;
 
   auto getTagContent = [](const String &src, const String &tag) -> String {
     String open = "<" + tag + ">";
