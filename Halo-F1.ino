@@ -25,9 +25,9 @@ const int DRIVERS_NUMBER = 22;
 #define SCREEN_HEIGHT 480
 
 #ifdef TOUCH_CAPACITIVE
-const String fw_version = "1.2.2-beta";
+const String fw_version = "1.2.3-beta";
 #else
-const String fw_version = "1.2.2-R-beta";
+const String fw_version = "1.2.3-R-beta";
 #endif
 
 
@@ -179,17 +179,22 @@ lv_obj_t * no_spoiler_switch; bool noSpoilerModeActive = true;
 lv_obj_t * brightness_slider, *night_brightness_slider; uint8_t brightness = 255, night_brightness = 30;
 lv_obj_t * news_feed_selector; uint8_t selectedNewsFeed = 0;
 lv_obj_t * news_pulse_switch; bool newsPulseEnabled = true;
+bool fastNewsFetchMode = false;
 
-const uint8_t NEWS_FEED_COUNT = 3;
+const uint8_t NEWS_FEED_COUNT = 5;
 const char * const newsFeedNames[NEWS_FEED_COUNT] = {
-  "The Race",
-  "Formula1.com",
-  "Motorsport-Total"
+  "The Race (EN)",
+  "Formula1.com (EN)",
+  "Motorsport-Total (DE)",
+  "RacingNews365 (NL)",
+  "FormulaPassion (IT)"
 };
 const char * const newsFeedUrls[NEWS_FEED_COUNT] = {
   "https://www.the-race.com/category/formula-1/rss/",
   "https://www.formula1.com/en/latest/all.xml",
-  "https://www.motorsport-total.com/rss/rss_formel-1.xml"
+  "https://www.motorsport-total.com/rss/rss_formel-1.xml",
+  "https://racingnews365.nl/feed/news.xml",
+  "https://www.formulapassion.it/motorsport/formula-1/feed"
 };
 
 // No-Spoiler lift state (not a setting — temporary per-session override)
