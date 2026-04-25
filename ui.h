@@ -70,23 +70,31 @@ static void start_news_tab_pulse() {
     lv_anim_start(&a);
 }
 
+static void sync_news_tab_pulse_state() {
+    if (!news_tab_button) return;
+    if (hasUnreadNews && newsPulseEnabled && home_tabs && lv_tabview_get_tab_active(home_tabs) != NEWS_TAB_INDEX) {
+        start_news_tab_pulse();
+    } else {
+        stop_news_tab_pulse();
+    }
+}
+
 static void news_pulse_switch_handler(lv_event_t * e) {
     lv_obj_t * sw = (lv_obj_t *) lv_event_get_target(e);
     newsPulseEnabled = lv_obj_has_state(sw, LV_STATE_CHECKED);
 
-    if (!newsPulseEnabled) {
-        stop_news_tab_pulse();
-    } else if (hasUnreadNews && home_tabs && lv_tabview_get_tab_active(home_tabs) != NEWS_TAB_INDEX) {
-        start_news_tab_pulse();
-    }
+    sync_news_tab_pulse_state();
 
     saveSettings();
 }
 
 static void news_tab_button_clicked_handler(lv_event_t * e) {
-    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code != LV_EVENT_CLICKED &&
+        code != LV_EVENT_RELEASED &&
+        code != LV_EVENT_VALUE_CHANGED) return;
     hasUnreadNews = false;
-    stop_news_tab_pulse();
+    sync_news_tab_pulse_state();
 }
 
 
@@ -119,7 +127,9 @@ static void news_feed_selection_event_handler(lv_event_t * e) {
   if (sel < NEWS_FEED_COUNT) {
       selectedNewsFeed = (uint8_t)sel;
       Serial.printf("[UI] News feed changed to: %s\n", newsFeedNames[selectedNewsFeed]);
+      fastNewsFetchMode = true;
       create_or_reload_news_ui(nullptr);
+      fastNewsFetchMode = false;
   }
 
   saveSettings();
@@ -1363,7 +1373,7 @@ void create_or_reload_news_ui(lv_timer_t *timer) {
     // If user is on News tab, ensure pulse is always fully stopped.
     if (home_tabs && lv_tabview_get_tab_active(home_tabs) == NEWS_TAB_INDEX) {
         hasUnreadNews = false;
-        stop_news_tab_pulse();
+        sync_news_tab_pulse_state();
     }
 
     // Always clear the tab first so feed switches never leave stale content visible.
@@ -1480,10 +1490,10 @@ void create_or_reload_news_ui(lv_timer_t *timer) {
         playNotificationSound();
         if (home_tabs && lv_tabview_get_tab_active(home_tabs) != NEWS_TAB_INDEX) {
             hasUnreadNews = true;
-            if (newsPulseEnabled) start_news_tab_pulse();
+            sync_news_tab_pulse_state();
         } else {
             hasUnreadNews = false;
-            stop_news_tab_pulse();
+            sync_news_tab_pulse_state();
         }
         //lv_tabview_set_active(home_tabs, 1, LV_ANIM_ON); // switch to article tab -- place under a bool switch in settings
     }
@@ -1797,7 +1807,8 @@ lv_obj_t * create_main_tabview(lv_obj_t * screen) {
         lv_obj_set_style_border_width(button, 3, LV_PART_MAIN | LV_STATE_CHECKED);
         if (i == NEWS_TAB_INDEX) {
             news_tab_button = button;
-            lv_obj_add_event_cb(news_tab_button, news_tab_button_clicked_handler, LV_EVENT_CLICKED, NULL);
+            lv_obj_add_event_cb(news_tab_button, news_tab_button_clicked_handler, LV_EVENT_ALL, NULL);
+            sync_news_tab_pulse_state();
         }
     }
 
