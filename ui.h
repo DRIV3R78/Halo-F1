@@ -70,36 +70,31 @@ static void start_news_tab_pulse() {
     lv_anim_start(&a);
 }
 
+static void sync_news_tab_pulse_state() {
+    if (!news_tab_button) return;
+    if (hasUnreadNews && newsPulseEnabled && home_tabs && lv_tabview_get_tab_active(home_tabs) != NEWS_TAB_INDEX) {
+        start_news_tab_pulse();
+    } else {
+        stop_news_tab_pulse();
+    }
+}
+
 static void news_pulse_switch_handler(lv_event_t * e) {
     lv_obj_t * sw = (lv_obj_t *) lv_event_get_target(e);
     newsPulseEnabled = lv_obj_has_state(sw, LV_STATE_CHECKED);
 
-    if (!newsPulseEnabled) {
-        stop_news_tab_pulse();
-    } else if (hasUnreadNews && home_tabs && lv_tabview_get_tab_active(home_tabs) != NEWS_TAB_INDEX) {
-        start_news_tab_pulse();
-    }
+    sync_news_tab_pulse_state();
 
     saveSettings();
 }
 
-static void home_tab_changed_handler(lv_event_t * e) {
-    if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
-    if (!home_tabs) return;
-
-    uint32_t active = lv_tabview_get_tab_active(home_tabs);
-    if (active == NEWS_TAB_INDEX) {
-        hasUnreadNews = false;
-        stop_news_tab_pulse();
-    } else if (hasUnreadNews && newsPulseEnabled) {
-        start_news_tab_pulse();
-    }
-}
-
 static void news_tab_button_clicked_handler(lv_event_t * e) {
-    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code != LV_EVENT_CLICKED &&
+        code != LV_EVENT_RELEASED &&
+        code != LV_EVENT_VALUE_CHANGED) return;
     hasUnreadNews = false;
-    stop_news_tab_pulse();
+    sync_news_tab_pulse_state();
 }
 
 
@@ -132,7 +127,9 @@ static void news_feed_selection_event_handler(lv_event_t * e) {
   if (sel < NEWS_FEED_COUNT) {
       selectedNewsFeed = (uint8_t)sel;
       Serial.printf("[UI] News feed changed to: %s\n", newsFeedNames[selectedNewsFeed]);
+      fastNewsFetchMode = true;
       create_or_reload_news_ui(nullptr);
+      fastNewsFetchMode = false;
   }
 
   saveSettings();
@@ -693,12 +690,25 @@ lv_obj_t * create_language_selector(lv_obj_t * parent) {
 
   lv_obj_t *selector = lv_dropdown_create(obj);
 
-  String language_options;
+  char language_options[256];
+  size_t used = 0;
+  language_options[0] = '\0';
   for (size_t i = 0; i < languageCount; i++) {
-      language_options += languages[i].displayName;
-      if (i < languageCount - 1) language_options += "\n";
+      int written = snprintf(
+          language_options + used,
+          sizeof(language_options) - used,
+          (i < languageCount - 1) ? "%s\n" : "%s",
+          languages[i].displayName
+      );
+      if (written < 0) break;
+      if ((size_t)written >= sizeof(language_options) - used) {
+          used = sizeof(language_options) - 1;
+          language_options[used] = '\0';
+          break;
+      }
+      used += (size_t)written;
   }
-  lv_dropdown_set_options(selector, language_options.c_str());
+  lv_dropdown_set_options(selector, language_options);
 
   size_t currentIndex = 0;
   for (size_t i = 0; i < languageCount; i++) {
@@ -713,15 +723,28 @@ lv_obj_t * create_language_selector(lv_obj_t * parent) {
 }
 
 lv_obj_t * create_news_feed_selector(lv_obj_t * parent) {
-  lv_obj_t *obj = create_text(parent, LV_SYMBOL_LIST, "News Feed", 1);
+  lv_obj_t *obj = create_text(parent, LV_SYMBOL_LIST, localized_text->news_feed_label, 1);
   lv_obj_t *selector = lv_dropdown_create(obj);
 
-  String news_feed_options;
+  char news_feed_options[192];
+  size_t used = 0;
+  news_feed_options[0] = '\0';
   for (uint8_t i = 0; i < NEWS_FEED_COUNT; i++) {
-      news_feed_options += newsFeedNames[i];
-      if (i < NEWS_FEED_COUNT - 1) news_feed_options += "\n";
+      int written = snprintf(
+          news_feed_options + used,
+          sizeof(news_feed_options) - used,
+          (i < NEWS_FEED_COUNT - 1) ? "%s\n" : "%s",
+          newsFeedNames[i]
+      );
+      if (written < 0) break;
+      if ((size_t)written >= sizeof(news_feed_options) - used) {
+          used = sizeof(news_feed_options) - 1;
+          news_feed_options[used] = '\0';
+          break;
+      }
+      used += (size_t)written;
   }
-  lv_dropdown_set_options(selector, news_feed_options.c_str());
+  lv_dropdown_set_options(selector, news_feed_options);
 
   if (selectedNewsFeed >= NEWS_FEED_COUNT) selectedNewsFeed = 0;
   lv_dropdown_set_selected(selector, selectedNewsFeed);
@@ -1350,7 +1373,7 @@ void create_or_reload_news_ui(lv_timer_t *timer) {
     // If user is on News tab, ensure pulse is always fully stopped.
     if (home_tabs && lv_tabview_get_tab_active(home_tabs) == NEWS_TAB_INDEX) {
         hasUnreadNews = false;
-        stop_news_tab_pulse();
+        sync_news_tab_pulse_state();
     }
 
     // Always clear the tab first so feed switches never leave stale content visible.
@@ -1467,10 +1490,10 @@ void create_or_reload_news_ui(lv_timer_t *timer) {
         playNotificationSound();
         if (home_tabs && lv_tabview_get_tab_active(home_tabs) != NEWS_TAB_INDEX) {
             hasUnreadNews = true;
-            if (newsPulseEnabled) start_news_tab_pulse();
+            sync_news_tab_pulse_state();
         } else {
             hasUnreadNews = false;
-            stop_news_tab_pulse();
+            sync_news_tab_pulse_state();
         }
         //lv_tabview_set_active(home_tabs, 1, LV_ANIM_ON); // switch to article tab -- place under a bool switch in settings
     }
@@ -1514,7 +1537,7 @@ void create_or_reload_settings_ui() {
   no_spoiler_switch = create_switch(cont, LV_SYMBOL_WARNING, localized_text->no_spoiler_mode, noSpoilerModeActive);
   lv_obj_add_event_cb(no_spoiler_switch, no_spoiler_switch_handler, LV_EVENT_VALUE_CHANGED, NULL);
   // News pulse effect
-  news_pulse_switch = create_switch(cont, LV_SYMBOL_BELL, "News Pulse Effect", newsPulseEnabled);
+  news_pulse_switch = create_switch(cont, LV_SYMBOL_BELL, localized_text->news_pulse_effect_label, newsPulseEnabled);
   lv_obj_add_event_cb(news_pulse_switch, news_pulse_switch_handler, LV_EVENT_VALUE_CHANGED, NULL);
 
   // -- Timezone Settings --
@@ -1784,11 +1807,10 @@ lv_obj_t * create_main_tabview(lv_obj_t * screen) {
         lv_obj_set_style_border_width(button, 3, LV_PART_MAIN | LV_STATE_CHECKED);
         if (i == NEWS_TAB_INDEX) {
             news_tab_button = button;
-            lv_obj_add_event_cb(news_tab_button, news_tab_button_clicked_handler, LV_EVENT_CLICKED, NULL);
+            lv_obj_add_event_cb(news_tab_button, news_tab_button_clicked_handler, LV_EVENT_ALL, NULL);
+            sync_news_tab_pulse_state();
         }
     }
-
-    lv_obj_add_event_cb(tabview, home_tab_changed_handler, LV_EVENT_VALUE_CHANGED, NULL);
 
     return tabview;
 }
