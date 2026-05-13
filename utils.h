@@ -1,3 +1,5 @@
+#include <math.h>
+
 // forward declaration
 String current_f1_champion = "4"; // Norris
 void create_or_reload_race_sessions(bool force_reload = false);
@@ -20,6 +22,24 @@ String getDeviceUUID() {
            (unsigned long long)(chipid & 0xFFFFFFFFFFFFULL));
 
   return String(uuid);
+}
+
+/** Local clock text on race tab + session rows (12 h uses AM/PM). Depends on globals use24hClock / useFahrenheit. */
+static inline void halo_format_local_time(char *buf, size_t sz, int hour24, int min) {
+    if (use24hClock) {
+        snprintf(buf, sz, "%02d:%02d", hour24, min);
+    } else {
+        int h12 = hour24 % 12;
+        if (h12 == 0) h12 = 12;
+        const char *ap = (hour24 < 12) ? "AM" : "PM";
+        snprintf(buf, sz, "%d:%02d %s", h12, min, ap);
+    }
+}
+
+/** Weather badge: stored °C from API → display value for °C or °F. */
+static inline int halo_display_temp_from_c(int8_t temp_c) {
+    if (!useFahrenheit) return (int)temp_c;
+    return (int)roundf((float)temp_c * 9.0f / 5.0f + 32.0f);
 }
 
 // Formats Lap Time from seconds to M:SS.sss
@@ -181,7 +201,7 @@ DriverStanding* getDriverInfoByNumber(const String& driverNumber) {
 // Formats session datetime 
 // @param -> iWant = "all", "date", "time"
 char* getSessionDateTimeFormatted(String utcSessionDate, String utcSessionTime, String iWant = "all") {
-    static char formatted[50]; // static so it persists after return
+    static char formatted[72]; // static so it persists after return (12 h + long month names)
 
     // Remove trailing 'Z' if present
     if (utcSessionTime.endsWith("Z")) {
@@ -211,16 +231,15 @@ char* getSessionDateTimeFormatted(String utcSessionDate, String utcSessionTime, 
                  adjustedTime.tm_mday,
                  localized_text->months[adjustedTime.tm_mon]);
     } else if (iWant == "time") {
-        snprintf(formatted, sizeof(formatted), "%02d:%02d",
-                 adjustedTime.tm_hour,
-                 adjustedTime.tm_min);
+        halo_format_local_time(formatted, sizeof(formatted), adjustedTime.tm_hour, adjustedTime.tm_min);
     } else {
-        snprintf(formatted, sizeof(formatted), "%s %d %s, %02d:%02d",
+        char timestr[20];
+        halo_format_local_time(timestr, sizeof(timestr), adjustedTime.tm_hour, adjustedTime.tm_min);
+        snprintf(formatted, sizeof(formatted), "%s %d %s, %s",
                  localized_text->short_days[adjustedTime.tm_wday],
                  adjustedTime.tm_mday,
                  localized_text->months[adjustedTime.tm_mon],
-                 adjustedTime.tm_hour,
-                 adjustedTime.tm_min);
+                 timestr);
     }
 
     return formatted;
@@ -254,7 +273,9 @@ void update_ui(lv_timer_t *timer) {
 
   if (adjustedTime.tm_hour == 2 && adjustedTime.tm_min % 60 == 0) update_internal_clock();
   Serial.println("[Utils.h] Updating Clock and shit");
-  if (racetab_labels.clock) lv_label_set_text_fmt(racetab_labels.clock, "%02d:%02d", adjustedTime.tm_hour, adjustedTime.tm_min);
+  char clkbuf[20];
+  halo_format_local_time(clkbuf, sizeof(clkbuf), adjustedTime.tm_hour, adjustedTime.tm_min);
+  if (racetab_labels.clock) lv_label_set_text(racetab_labels.clock, clkbuf);
   if (racetab_labels.date) lv_label_set_text_fmt(racetab_labels.date, "%s %d, %s", localized_text->short_days[adjustedTime.tm_wday], adjustedTime.tm_mday, localized_text->months[adjustedTime.tm_mon]);
   if (racetab_labels.race_name) lv_label_set_text_fmt(racetab_labels.race_name, "%s", next_race.raceName.c_str());
 
@@ -298,7 +319,9 @@ void force_update_ui() {
 
   if (adjustedTime.tm_hour == 2 && adjustedTime.tm_min % 60 == 0) update_internal_clock();
   Serial.println("[Utils.h] Updating Clock and shit");
-  if (racetab_labels.clock) lv_label_set_text_fmt(racetab_labels.clock, "%02d:%02d", adjustedTime.tm_hour, adjustedTime.tm_min);
+  char clkbuf[20];
+  halo_format_local_time(clkbuf, sizeof(clkbuf), adjustedTime.tm_hour, adjustedTime.tm_min);
+  if (racetab_labels.clock) lv_label_set_text(racetab_labels.clock, clkbuf);
   if (racetab_labels.date) lv_label_set_text_fmt(racetab_labels.date, "%s %d, %s", localized_text->short_days[adjustedTime.tm_wday], adjustedTime.tm_mday, localized_text->months[adjustedTime.tm_mon]);
   if (racetab_labels.race_name) lv_label_set_text_fmt(racetab_labels.race_name, "%s", next_race.raceName.c_str());
 
@@ -370,4 +393,17 @@ void halo_set_switch_state(lv_obj_t* switch_obj, bool state) {
     } else {
         lv_obj_clear_state(switch_obj, LV_STATE_CHECKED);
     }
+}
+
+/** Settings tab: denser layout — slightly smaller toggles (default theme is built for ~50×28). */
+static inline void halo_style_settings_switch(lv_obj_t *sw) {
+    lv_obj_set_size(sw, 40, 22);
+}
+
+/** Settings tab: thinner horizontal sliders so rows stay visually lighter. */
+static inline void halo_style_settings_slider(lv_obj_t *slider) {
+    lv_obj_set_style_height(slider, 11, LV_PART_MAIN);
+    lv_obj_set_style_height(slider, 11, LV_PART_INDICATOR);
+    lv_obj_set_style_width(slider, 14, LV_PART_KNOB);
+    lv_obj_set_style_height(slider, 14, LV_PART_KNOB);
 }
