@@ -25,9 +25,9 @@ const int DRIVERS_NUMBER = 22;
 #define SCREEN_HEIGHT 480
 
 #ifdef TOUCH_CAPACITIVE
-const String fw_version = "1.2.3-fork.1";
+const String fw_version = "1.2.3-fork.2";
 #else
-const String fw_version = "1.2.3-R-fork.1";
+const String fw_version = "1.2.3-R-fork.2";
 #endif
 
 
@@ -180,6 +180,10 @@ lv_obj_t * brightness_slider, *night_brightness_slider; uint8_t brightness = 255
 lv_obj_t * news_feed_selector; uint8_t selectedNewsFeed = 0;
 lv_obj_t * news_pulse_switch; bool newsPulseEnabled = true;
 lv_obj_t * standings_scroll_mode_switch; bool standingsAutoScrollEnabled = false;
+lv_obj_t * clock_24h_switch;
+lv_obj_t * temp_unit_switch;
+bool use24hClock = true;
+bool useFahrenheit = false;
 bool fastNewsFetchMode = false;
 
 const uint8_t NEWS_FEED_COUNT = 10;
