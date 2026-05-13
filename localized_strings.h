@@ -57,6 +57,8 @@ typedef struct {
   const char* news_feed_label;
   const char* news_pulse_effect_label;
   const char* standings_scroll_mode_label;
+  const char* clock_24h_label;
+  const char* temperature_fahrenheit_label;
 } LanguageStrings;
 
 const LanguageStrings language_strings_en PROGMEM = {
@@ -118,6 +120,8 @@ const LanguageStrings language_strings_en PROGMEM = {
   "News Feed",
   "News Pulse Effect",
   "Auto Scroll",
+  "24-hour time",
+  "Fahrenheit (\xC2\xB0""F)",
 };
 
 const LanguageStrings language_strings_it PROGMEM = {
@@ -179,6 +183,8 @@ const LanguageStrings language_strings_it PROGMEM = {
   "Feed Notizie",
   "Effetto Pulsazione Notizie",
   "Scorrimento Auto",
+  "Orologio 24 ore",
+  "Fahrenheit (\xC2\xB0""F)",
 };
 
 const LanguageStrings language_strings_es PROGMEM = {
@@ -240,6 +246,8 @@ const LanguageStrings language_strings_es PROGMEM = {
   "Fuente de Noticias",
   "Efecto Pulso de Noticias",
   "Auto Scroll",
+  "Reloj de 24 horas",
+  "Fahrenheit (\xC2\xB0""F)",
 };
 
 const LanguageStrings language_strings_fr PROGMEM = {
@@ -301,6 +309,8 @@ const LanguageStrings language_strings_fr PROGMEM = {
   "Source d'Actualités",
   "Effet de Pulsation des Actualités",
   "Defilement Auto",
+  "Format 24 h",
+  "Fahrenheit (\xC2\xB0""F)",
 };
 
 const LanguageStrings language_strings_nl PROGMEM = {
@@ -362,6 +372,8 @@ const LanguageStrings language_strings_nl PROGMEM = {
   "Nieuwsbron",
   "Nieuws Pulse Effect",
   "Auto Scroll",
+  "24-uurs klok",
+  "Fahrenheit (\xC2\xB0""F)",
 };
 
 const LanguageStrings language_strings_de PROGMEM = {
@@ -423,6 +435,8 @@ const LanguageStrings language_strings_de PROGMEM = {
   "News-Feed",
   "News-Puls Effekt",
   "Auto-Scroll",
+  "24-Stunden-Zeitanzeige",
+  "Fahrenheit (\xC2\xB0""F)",
 };
 
 const LanguageStrings language_strings_pt PROGMEM = {
@@ -484,6 +498,8 @@ const LanguageStrings language_strings_pt PROGMEM = {
   "Fonte de Notícias",
   "Efeito de Pulso de Notícias",
   "Rolagem Auto",
+  "Relógio de 24 horas",
+  "Fahrenheit (\xC2\xB0""F)",
 };
 
 const LanguageStrings language_strings_no PROGMEM = {
@@ -545,6 +561,8 @@ const LanguageStrings language_strings_no PROGMEM = {
   "Nyhetskilde",
   "Nyheter Pulseffekt",
   "Auto-rulling",
+  "24-timers klokke",
+  "Fahrenheit (\xC2\xB0""F)",
 };
 
 const LanguageStrings language_strings_pl PROGMEM = {
@@ -606,6 +624,8 @@ const LanguageStrings language_strings_pl PROGMEM = {
   "Źródło Wiadomości",
   "Efekt Pulsu Wiadomosci",
   "Auto przewijanie",
+  "Format 24 godzinny",
+  "Fahrenheit (\xC2\xB0""F)",
 };
 
 uint32_t get_team_color(String team) {
