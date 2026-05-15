@@ -212,7 +212,6 @@ static void no_spoiler_switch_handler(lv_event_t * e) {
 
 
 static void timezone_roller_event_handler(lv_event_t * e) {
-    if (lv_event_get_code(e) == LV_EVENT_RELEASED) saveSettings();
     if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
     if (!timezoneOverrideActive) return;
     if (!timezoneRoller.hours) return;
@@ -232,21 +231,21 @@ static void timezone_roller_event_handler(lv_event_t * e) {
     if (offset_minutes >  720) offset_minutes -= 1440; // > +12h → wrap negative
     if (offset_minutes < -720) offset_minutes += 1440; // < -12h → wrap positive
 
-    UTCoffsetHours   = offset_minutes / 60;
-    //UTCoffsetMinutes = offset_minutes % 60;
-    UTCoffset        = (long)offset_minutes * 60;
+    UTCoffsetHours = offset_minutes / 60;
+    UTCoffset      = (long)offset_minutes * 60;
+    saveSettings();
 }
 
 static void timezone_override_switch_handler(lv_event_t * e) {
     lv_obj_t* sw = (lv_obj_t*)lv_event_get_target(e);
     timezoneOverrideActive = lv_obj_has_state(sw, LV_STATE_CHECKED);
 
-    if (!timezoneOverrideActive) {
+    if (timezoneOverrideActive) {
+        applyStoredTimezoneOffset();
+    } else {
         // Re-fetch from ipapi so we snap back to real offset
-        UTCoffset = getUtcOffsetInSeconds();
+        UTCoffset = (long)getUtcOffsetInSeconds();
     }
-    // If activating: rollers already reflect current UTCoffset (set during creation),
-    // so we just stop future ipapi calls from overwriting.
     saveSettings();
 }
 
@@ -1444,18 +1443,36 @@ void create_or_reload_race_ui() {
   //  CLOCK  //
   //---------//
 
-  racetab_labels.clock = lv_label_create(tabs.race);
+  racetab_labels.clock_row = lv_obj_create(tabs.race);
+  lv_obj_remove_style_all(racetab_labels.clock_row);
+  lv_obj_set_size(racetab_labels.clock_row, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+  lv_obj_set_flex_flow(racetab_labels.clock_row, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(racetab_labels.clock_row,
+                        LV_FLEX_ALIGN_END,
+                        LV_FLEX_ALIGN_END,
+                        LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_style_pad_column(racetab_labels.clock_row, 4, LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_pad_left(racetab_labels.clock_row, 4, LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_bg_opa(racetab_labels.clock_row, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_bg_color(racetab_labels.clock_row, lv_color_black(), LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_remove_flag(racetab_labels.clock_row, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_align(racetab_labels.clock_row, LV_ALIGN_TOP_RIGHT, 0, 0);
 
-  lv_obj_align(racetab_labels.clock, LV_ALIGN_TOP_RIGHT, 0, 0);
+  racetab_labels.clock = lv_label_create(racetab_labels.clock_row);
   lv_obj_set_style_text_align(racetab_labels.clock, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN | LV_STATE_DEFAULT);
-  lv_label_set_long_mode(racetab_labels.clock, LV_LABEL_LONG_MODE_CLIP); 
-  lv_obj_set_style_bg_opa(racetab_labels.clock, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
-  lv_obj_set_style_bg_color(racetab_labels.clock, lv_color_black(), LV_PART_MAIN | LV_STATE_DEFAULT);
-  lv_obj_set_style_pad_left(racetab_labels.clock, 4, LV_PART_MAIN | LV_STATE_DEFAULT);
-
+  lv_label_set_long_mode(racetab_labels.clock, LV_LABEL_LONG_MODE_CLIP);
+  lv_obj_set_style_bg_opa(racetab_labels.clock, LV_OPA_TRANSP, LV_PART_MAIN | LV_STATE_DEFAULT);
   lv_obj_set_style_text_font(racetab_labels.clock, &montserrat_38, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-
+  racetab_labels.clock_ampm = lv_label_create(racetab_labels.clock_row);
+  lv_obj_set_style_text_align(racetab_labels.clock_ampm, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_label_set_long_mode(racetab_labels.clock_ampm, LV_LABEL_LONG_MODE_CLIP);
+  lv_obj_set_style_bg_opa(racetab_labels.clock_ampm, LV_OPA_TRANSP, LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_text_font(racetab_labels.clock_ampm, &montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_label_set_text(racetab_labels.clock_ampm, "");
+  if (use24hClock) {
+      lv_obj_add_flag(racetab_labels.clock_ampm, LV_OBJ_FLAG_HIDDEN);
+  }
   //------------//
   //  RACENAME  //
   //------------//
