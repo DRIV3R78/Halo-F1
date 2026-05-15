@@ -24,15 +24,35 @@ String getDeviceUUID() {
   return String(uuid);
 }
 
-/** Local clock text on race tab + session rows (12 h uses AM/PM). Depends on globals use24hClock / useFahrenheit. */
-static inline void halo_format_local_time(char *buf, size_t sz, int hour24, int min) {
+/** Race tab main clock: time only (12 h without suffix). */
+static inline void halo_format_clock_time_main(char *buf, size_t sz, int hour24, int min) {
     if (use24hClock) {
         snprintf(buf, sz, "%02d:%02d", hour24, min);
     } else {
         int h12 = hour24 % 12;
         if (h12 == 0) h12 = 12;
-        const char *ap = (hour24 < 12) ? "AM" : "PM";
-        snprintf(buf, sz, "%d:%02d %s", h12, min, ap);
+        snprintf(buf, sz, "%d:%02d", h12, min);
+    }
+}
+
+/** Race tab main clock: a/p next to time; empty string in 24 h mode. */
+static inline void halo_format_clock_ampm(char *buf, size_t sz, int hour24) {
+    if (use24hClock) {
+        buf[0] = '\0';
+        return;
+    }
+    snprintf(buf, sz, "%c", (hour24 < 12) ? 'a' : 'p');
+}
+
+/** Session rows / combined session strings: 12 h uses a / p suffix (not full AM/PM). */
+static inline void halo_format_session_local_time(char *buf, size_t sz, int hour24, int min) {
+    if (use24hClock) {
+        snprintf(buf, sz, "%02d:%02d", hour24, min);
+    } else {
+        int h12 = hour24 % 12;
+        if (h12 == 0) h12 = 12;
+        char ap = (hour24 < 12) ? 'a' : 'p';
+        snprintf(buf, sz, "%d:%02d%c", h12, min, ap);
     }
 }
 
@@ -54,10 +74,16 @@ String formatLapTime(float seconds) {
   return String(buffer);
 }
 
-// API call to get current timezone offset
+/** Manual override: rebuild seconds offset from persisted whole hours (NVS / roller). */
+static inline void applyStoredTimezoneOffset() {
+  UTCoffset = (long)UTCoffsetHours * 3600;
+}
+
+// API call to get current timezone offset (auto mode only; never overwrites manual override)
 int64_t getUtcOffsetInSeconds() {
   if (timezoneOverrideActive) {
-    return UTCoffset; // just echo back whatever the rollers set
+    applyStoredTimezoneOffset();
+    return UTCoffset;
   }
 
   HTTPClient client;
@@ -67,18 +93,12 @@ int64_t getUtcOffsetInSeconds() {
   client.begin(url.c_str());
   int statusCode = client.GET();
   //debug->println("Status code: %i", statusCode);
-  if (statusCode != 200 && statusCode != 429 && statusCode != -11) {
-    //debug.println("Error getting local time zone, status code: %i\n", statusCode);
-    return 0;
+  if (statusCode != 200) {
+    // Keep last known offset on network errors, rate limits, etc.
+    return UTCoffset;
   }
 
-  std::string offset;
-
-  if (statusCode == 429 || statusCode == -11) {
-    offset = "+0000"; // defaults to UTC
-  } else {
-    offset = std::string(client.getString().c_str());
-  }
+  std::string offset = std::string(client.getString().c_str());
 
   client.end();
 
@@ -229,25 +249,29 @@ char* getSessionDateTimeFormatted(String utcSessionDate, String utcSessionTime, 
         snprintf(formatted, sizeof(formatted), "%s %d %s",
                  localized_text->short_days[adjustedTime.tm_wday],
                  adjustedTime.tm_mday,
-                 localized_text->months[adjustedTime.tm_mon]);
+                 localized_text->short_months[adjustedTime.tm_mon]);
     } else if (iWant == "time") {
-        halo_format_local_time(formatted, sizeof(formatted), adjustedTime.tm_hour, adjustedTime.tm_min);
+        halo_format_session_local_time(formatted, sizeof(formatted), adjustedTime.tm_hour, adjustedTime.tm_min);
     } else {
-        char timestr[20];
-        halo_format_local_time(timestr, sizeof(timestr), adjustedTime.tm_hour, adjustedTime.tm_min);
+        char timestr[24];
+        halo_format_session_local_time(timestr, sizeof(timestr), adjustedTime.tm_hour, adjustedTime.tm_min);
         snprintf(formatted, sizeof(formatted), "%s %d %s, %s",
                  localized_text->short_days[adjustedTime.tm_wday],
                  adjustedTime.tm_mday,
-                 localized_text->months[adjustedTime.tm_mon],
+                 localized_text->short_months[adjustedTime.tm_mon],
                  timestr);
     }
 
     return formatted;
 }
 
-// Calls NTP Server to update internal clock
+// Calls NTP Server to update internal clock; refreshes timezone offset only in auto mode
 void update_internal_clock() {
-  UTCoffset = (long) getUtcOffsetInSeconds();
+  if (timezoneOverrideActive) {
+    applyStoredTimezoneOffset();
+  } else {
+    UTCoffset = (long)getUtcOffsetInSeconds();
+  }
   configTime(0, 0, "pool.ntp.org");
   Serial.println("[Utils.h] Internal clock updated via NTP");
 }
@@ -273,10 +297,20 @@ void update_ui(lv_timer_t *timer) {
 
   if (adjustedTime.tm_hour == 2 && adjustedTime.tm_min % 60 == 0) update_internal_clock();
   Serial.println("[Utils.h] Updating Clock and shit");
-  char clkbuf[20];
-  halo_format_local_time(clkbuf, sizeof(clkbuf), adjustedTime.tm_hour, adjustedTime.tm_min);
-  if (racetab_labels.clock) lv_label_set_text(racetab_labels.clock, clkbuf);
-  if (racetab_labels.date) lv_label_set_text_fmt(racetab_labels.date, "%s %d, %s", localized_text->short_days[adjustedTime.tm_wday], adjustedTime.tm_mday, localized_text->months[adjustedTime.tm_mon]);
+  char tbuf[16];
+  char abuf[8];
+  halo_format_clock_time_main(tbuf, sizeof(tbuf), adjustedTime.tm_hour, adjustedTime.tm_min);
+  halo_format_clock_ampm(abuf, sizeof(abuf), adjustedTime.tm_hour);
+  if (racetab_labels.clock) lv_label_set_text(racetab_labels.clock, tbuf);
+  if (racetab_labels.clock_ampm) {
+      lv_label_set_text(racetab_labels.clock_ampm, abuf);
+      if (use24hClock) {
+          lv_obj_add_flag(racetab_labels.clock_ampm, LV_OBJ_FLAG_HIDDEN);
+      } else {
+          lv_obj_remove_flag(racetab_labels.clock_ampm, LV_OBJ_FLAG_HIDDEN);
+      }
+  }
+  if (racetab_labels.date) lv_label_set_text_fmt(racetab_labels.date, "%s %d, %s", localized_text->short_days[adjustedTime.tm_wday], adjustedTime.tm_mday, localized_text->short_months[adjustedTime.tm_mon]);
   if (racetab_labels.race_name) lv_label_set_text_fmt(racetab_labels.race_name, "%s", next_race.raceName.c_str());
 
   if (timezoneRoller.hours && lv_obj_is_valid(timezoneRoller.hours) && 
@@ -319,13 +353,23 @@ void force_update_ui() {
 
   if (adjustedTime.tm_hour == 2 && adjustedTime.tm_min % 60 == 0) update_internal_clock();
   Serial.println("[Utils.h] Updating Clock and shit");
-  char clkbuf[20];
-  halo_format_local_time(clkbuf, sizeof(clkbuf), adjustedTime.tm_hour, adjustedTime.tm_min);
-  if (racetab_labels.clock) lv_label_set_text(racetab_labels.clock, clkbuf);
-  if (racetab_labels.date) lv_label_set_text_fmt(racetab_labels.date, "%s %d, %s", localized_text->short_days[adjustedTime.tm_wday], adjustedTime.tm_mday, localized_text->months[adjustedTime.tm_mon]);
+  char tbuf[16];
+  char abuf[8];
+  halo_format_clock_time_main(tbuf, sizeof(tbuf), adjustedTime.tm_hour, adjustedTime.tm_min);
+  halo_format_clock_ampm(abuf, sizeof(abuf), adjustedTime.tm_hour);
+  if (racetab_labels.clock) lv_label_set_text(racetab_labels.clock, tbuf);
+  if (racetab_labels.clock_ampm) {
+      lv_label_set_text(racetab_labels.clock_ampm, abuf);
+      if (use24hClock) {
+          lv_obj_add_flag(racetab_labels.clock_ampm, LV_OBJ_FLAG_HIDDEN);
+      } else {
+          lv_obj_remove_flag(racetab_labels.clock_ampm, LV_OBJ_FLAG_HIDDEN);
+      }
+  }
+  if (racetab_labels.date) lv_label_set_text_fmt(racetab_labels.date, "%s %d, %s", localized_text->short_days[adjustedTime.tm_wday], adjustedTime.tm_mday, localized_text->short_months[adjustedTime.tm_mon]);
   if (racetab_labels.race_name) lv_label_set_text_fmt(racetab_labels.race_name, "%s", next_race.raceName.c_str());
 
-  if (timezoneRoller.hours && lv_obj_is_valid(timezoneRoller.hours) && 
+  if (timezoneRoller.hours && lv_obj_is_valid(timezoneRoller.hours) &&
         !lv_obj_has_state(timezoneRoller.hours, LV_STATE_PRESSED) &&
         !lv_obj_has_state(timezoneRoller.hours, LV_STATE_FOCUSED)) {
       lv_roller_set_selected(timezoneRoller.hours, adjustedTime.tm_hour, LV_ANIM_OFF);
