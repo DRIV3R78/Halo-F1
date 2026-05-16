@@ -231,9 +231,7 @@ struct ScreenStruct {
 ScreenStruct screen;
 
 struct RaceTabLabelsStruct {
-  lv_obj_t * clock_row;
   lv_obj_t * clock;
-  lv_obj_t * clock_ampm;
   lv_obj_t * date;
   lv_obj_t * race_name;
 };
