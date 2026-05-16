@@ -19,12 +19,14 @@ typedef struct {
   const char* FP2;
   const char* FP3;
   const char* qualifying;
+  const char* quali;
   const char* Q1;
   const char* Q2;
   const char* Q3;
   const char* race;
   const char* sprint_race;
   const char* sprint_q;
+  const char* sprint_quali;
   const char* free_practice;
   const char* free_practice_1;
   const char* free_practice_2;
@@ -82,12 +84,14 @@ const LanguageStrings language_strings_en PROGMEM = {
   "FP2",
   "FP3",
   "Qualifying",
+  "Quali",
   "Q1",
   "Q2",
   "Q3",
   "Race",
   "Race", // was "Sprint Race"
   "Qualifying", // was "Sprint Qualy"
+  "Quali",
   "Free Practice",
   "Free Practice 1",
   "Free Practice 2",
@@ -145,12 +149,14 @@ const LanguageStrings language_strings_it PROGMEM = {
   "PL2",
   "PL3",
   "Qualifiche",
+  "Quali",
   "Q1",
   "Q2",
   "Q3",
   "Gara",
   "Gara", // sprint race
   "Qualifiche", // sprint qualifying
+  "Quali",
   "Prove Libere",
   "Prove Libere 1",
   "Prove Libere 2",
@@ -208,12 +214,14 @@ const LanguageStrings language_strings_es PROGMEM = {
   "FP2",
   "FP3",
   "Clasificación",
+  "Quali",
   "Q1",
   "Q2",
   "Q3",
   "Carrera",
   "Carrera", // sprint race
   "Clasificación", // sprint qualifying
+  "Quali",
   "Entrenamiento libre",
   "Entrenamiento libre 1",
   "Entrenamiento libre 2",
@@ -271,12 +279,14 @@ const LanguageStrings language_strings_fr PROGMEM = {
   "EL2",
   "EL3",
   "Qualifications",
+  "Quali",
   "Q1",
   "Q2",
   "Q3",
   "Course",
   "Course", // sprint race
   "Qualifications", // sprint qualifying
+  "Quali",
   "Essais libres",
   "Essais libres 1",
   "Essais libres 2",
@@ -334,12 +344,14 @@ const LanguageStrings language_strings_nl PROGMEM = {
   "VT2",
   "VT3",
   "Kwalificatie",
+  "Quali",
   "Q1",
   "Q2",
   "Q3",
   "Race",
   "Race", // sprint race
   "Kwalificatie", // sprint qualifying
+  "Quali",
   "Vrije training",
   "Vrije training 1",
   "Vrije training 2",
@@ -397,12 +409,14 @@ const LanguageStrings language_strings_de PROGMEM = {
   "FT2",
   "FT3",
   "Qualifying",
+  "Quali",
   "Q1",
   "Q2",
   "Q3",
   "Rennen",
   "Rennen", // sprint race
   "Qualifying", // sprint qualifying
+  "Quali",
   "Freies Training",
   "Freies Training 1",
   "Freies Training 2",
@@ -460,12 +474,14 @@ const LanguageStrings language_strings_pt PROGMEM = {
   "TL2",
   "TL3",
   "Classificação",
+  "Quali",
   "Q1",
   "Q2",
   "Q3",
   "Corrida",
   "Corrida", // sprint race
   "Classificação", // sprint qualifying
+  "Quali",
   "Treino Livre",
   "Treino Livre 1",
   "Treino Livre 2",
@@ -523,12 +539,14 @@ const LanguageStrings language_strings_no PROGMEM = {
   "FP2",
   "FP3",
   "Kvalifisering",
+  "Quali",
   "Q1",
   "Q2",
   "Q3",
   "Løp",
   "Løp", // sprint race
   "Kvalifisering", // sprint qualifying
+  "Quali",
   "Trening",
   "Trening 1",
   "Trening 2",
@@ -586,12 +604,14 @@ const LanguageStrings language_strings_pl PROGMEM = {
   "FP2",
   "FP3",
   "Kwalifikacje",
+  "Quali",
   "Q1",
   "Q2",
   "Q3",
   "Wyścig",
   "Sprint", // sprint race
   "Kwalifikacje", // sprint qualifying
+  "Quali",
   "Sesja treningowa",
   "Sesja treningowa 1",
   "Sesja treningowa 2",
