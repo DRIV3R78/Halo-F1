@@ -24,35 +24,15 @@ String getDeviceUUID() {
   return String(uuid);
 }
 
-/** Race tab main clock: time only (12 h without suffix). */
-static inline void halo_format_clock_time_main(char *buf, size_t sz, int hour24, int min) {
+/** Local time for race-tab clock and session rows (12 h: "12:34 AM"). */
+static inline void halo_format_local_time(char *buf, size_t sz, int hour24, int min) {
     if (use24hClock) {
         snprintf(buf, sz, "%02d:%02d", hour24, min);
     } else {
         int h12 = hour24 % 12;
         if (h12 == 0) h12 = 12;
-        snprintf(buf, sz, "%d:%02d", h12, min);
-    }
-}
-
-/** Race tab main clock: a/p next to time; empty string in 24 h mode. */
-static inline void halo_format_clock_ampm(char *buf, size_t sz, int hour24) {
-    if (use24hClock) {
-        buf[0] = '\0';
-        return;
-    }
-    snprintf(buf, sz, "%c", (hour24 < 12) ? 'a' : 'p');
-}
-
-/** Session rows / combined session strings: 12 h uses a / p suffix (not full AM/PM). */
-static inline void halo_format_session_local_time(char *buf, size_t sz, int hour24, int min) {
-    if (use24hClock) {
-        snprintf(buf, sz, "%02d:%02d", hour24, min);
-    } else {
-        int h12 = hour24 % 12;
-        if (h12 == 0) h12 = 12;
-        char ap = (hour24 < 12) ? 'a' : 'p';
-        snprintf(buf, sz, "%d:%02d%c", h12, min, ap);
+        const char *ap = (hour24 < 12) ? "AM" : "PM";
+        snprintf(buf, sz, "%d:%02d %s", h12, min, ap);
     }
 }
 
@@ -251,10 +231,10 @@ char* getSessionDateTimeFormatted(String utcSessionDate, String utcSessionTime, 
                  adjustedTime.tm_mday,
                  localized_text->short_months[adjustedTime.tm_mon]);
     } else if (iWant == "time") {
-        halo_format_session_local_time(formatted, sizeof(formatted), adjustedTime.tm_hour, adjustedTime.tm_min);
+        halo_format_local_time(formatted, sizeof(formatted), adjustedTime.tm_hour, adjustedTime.tm_min);
     } else {
         char timestr[24];
-        halo_format_session_local_time(timestr, sizeof(timestr), adjustedTime.tm_hour, adjustedTime.tm_min);
+        halo_format_local_time(timestr, sizeof(timestr), adjustedTime.tm_hour, adjustedTime.tm_min);
         snprintf(formatted, sizeof(formatted), "%s %d %s, %s",
                  localized_text->short_days[adjustedTime.tm_wday],
                  adjustedTime.tm_mday,
@@ -297,19 +277,6 @@ void update_ui(lv_timer_t *timer) {
 
   if (adjustedTime.tm_hour == 2 && adjustedTime.tm_min % 60 == 0) update_internal_clock();
   Serial.println("[Utils.h] Updating Clock and shit");
-  char tbuf[16];
-  char abuf[8];
-  halo_format_clock_time_main(tbuf, sizeof(tbuf), adjustedTime.tm_hour, adjustedTime.tm_min);
-  halo_format_clock_ampm(abuf, sizeof(abuf), adjustedTime.tm_hour);
-  if (racetab_labels.clock) lv_label_set_text(racetab_labels.clock, tbuf);
-  if (racetab_labels.clock_ampm) {
-      lv_label_set_text(racetab_labels.clock_ampm, abuf);
-      if (use24hClock) {
-          lv_obj_add_flag(racetab_labels.clock_ampm, LV_OBJ_FLAG_HIDDEN);
-      } else {
-          lv_obj_remove_flag(racetab_labels.clock_ampm, LV_OBJ_FLAG_HIDDEN);
-      }
-  }
   if (racetab_labels.date) lv_label_set_text_fmt(racetab_labels.date, "%s %d, %s", localized_text->short_days[adjustedTime.tm_wday], adjustedTime.tm_mday, localized_text->short_months[adjustedTime.tm_mon]);
   if (racetab_labels.race_name) lv_label_set_text_fmt(racetab_labels.race_name, "%s", next_race.raceName.c_str());
 
@@ -320,6 +287,11 @@ void update_ui(lv_timer_t *timer) {
   }
 
   create_or_reload_race_sessions();
+
+  char clkbuf[20];
+  halo_format_local_time(clkbuf, sizeof(clkbuf), adjustedTime.tm_hour, adjustedTime.tm_min);
+  if (racetab_labels.clock) lv_label_set_text(racetab_labels.clock, clkbuf);
+
   Serial.println("[Utils.h] Race Sessions Updated");
 
   // NIGHT MODE
@@ -353,19 +325,6 @@ void force_update_ui() {
 
   if (adjustedTime.tm_hour == 2 && adjustedTime.tm_min % 60 == 0) update_internal_clock();
   Serial.println("[Utils.h] Updating Clock and shit");
-  char tbuf[16];
-  char abuf[8];
-  halo_format_clock_time_main(tbuf, sizeof(tbuf), adjustedTime.tm_hour, adjustedTime.tm_min);
-  halo_format_clock_ampm(abuf, sizeof(abuf), adjustedTime.tm_hour);
-  if (racetab_labels.clock) lv_label_set_text(racetab_labels.clock, tbuf);
-  if (racetab_labels.clock_ampm) {
-      lv_label_set_text(racetab_labels.clock_ampm, abuf);
-      if (use24hClock) {
-          lv_obj_add_flag(racetab_labels.clock_ampm, LV_OBJ_FLAG_HIDDEN);
-      } else {
-          lv_obj_remove_flag(racetab_labels.clock_ampm, LV_OBJ_FLAG_HIDDEN);
-      }
-  }
   if (racetab_labels.date) lv_label_set_text_fmt(racetab_labels.date, "%s %d, %s", localized_text->short_days[adjustedTime.tm_wday], adjustedTime.tm_mday, localized_text->short_months[adjustedTime.tm_mon]);
   if (racetab_labels.race_name) lv_label_set_text_fmt(racetab_labels.race_name, "%s", next_race.raceName.c_str());
 
@@ -377,6 +336,11 @@ void force_update_ui() {
   
   Serial.println("[Utils.h] Updating Race Sessions");
   create_or_reload_race_sessions( true );
+
+  char clkbuf[20];
+  halo_format_local_time(clkbuf, sizeof(clkbuf), adjustedTime.tm_hour, adjustedTime.tm_min);
+  if (racetab_labels.clock) lv_label_set_text(racetab_labels.clock, clkbuf);
+
   Serial.println("[Utils.h] Race Sessions Updated");
 
   // NIGHT MODE
