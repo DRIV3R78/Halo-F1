@@ -4,6 +4,8 @@
 String current_f1_champion = "4"; // Norris
 void create_or_reload_race_sessions(bool force_reload = false);
 void adjustBrightness(uint8_t brightness);
+void endNightDisplayTempWake();
+void applyNightModeBrightness();
 void create_or_reload_settings_ui();
 void sendStatisticData(lv_timer_t *timer);
 
@@ -179,10 +181,8 @@ const char* getLocalizedSessionName(RaceSession &session) {
   if (session.name == "FP1") return localized_text->FP1;
   if (session.name == "FP2") return localized_text->FP2;
   if (session.name == "FP3") return localized_text->FP3;
-  if (session.name == "Qualifying") return localized_text->qualifying;
-  if (session.name == "Race") return localized_text->race;
-  if (session.name == "Sprint Qualifying") return localized_text->sprint_q;
-  if (session.name == "Sprint Race") return localized_text->sprint_race;
+  if (session.name == "Qualifying" || session.name == "Sprint Qualifying") return localized_text->quali;
+  if (session.name == "Race" || session.name == "Sprint Race") return localized_text->race;
 
   return session.name.c_str();
 }
@@ -297,9 +297,11 @@ void update_ui(lv_timer_t *timer) {
   // NIGHT MODE
   if (nightModeActive) {
     if (adjustedTime.tm_hour == nightModeTimes.start_hours && adjustedTime.tm_min == nightModeTimes.start_minutes) {
-      adjustBrightness(night_brightness);
+      endNightDisplayTempWake();
+      applyNightModeBrightness();
     }
     if (adjustedTime.tm_hour == nightModeTimes.stop_hours && adjustedTime.tm_min == nightModeTimes.stop_minutes) {
+      endNightDisplayTempWake();
       adjustBrightness(brightness);
     }
   }
@@ -346,9 +348,11 @@ void force_update_ui() {
   // NIGHT MODE
   if (nightModeActive) {
     if (adjustedTime.tm_hour == nightModeTimes.start_hours && adjustedTime.tm_min == nightModeTimes.start_minutes) {
-      adjustBrightness(night_brightness);
+      endNightDisplayTempWake();
+      applyNightModeBrightness();
     }
     if (adjustedTime.tm_hour == nightModeTimes.stop_hours && adjustedTime.tm_min == nightModeTimes.stop_minutes) {
+      endNightDisplayTempWake();
       adjustBrightness(brightness);
     }
   }
