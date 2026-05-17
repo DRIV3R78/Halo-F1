@@ -129,10 +129,46 @@ static void news_tab_button_clicked_handler(lv_event_t * e) {
 }
 
 
+static constexpr uint8_t NIGHT_TOUCH_WAKE_BRIGHTNESS = 128; // 50% of 255
+static constexpr uint32_t NIGHT_TOUCH_WAKE_MS = 10000;
+
 void adjustBrightness(uint8_t new_brightness) {
   lv_bb_spi_lcd_t * dsc = (lv_bb_spi_lcd_t *)lv_display_get_driver_data(disp);
   dsc->lcd->setBrightness(new_brightness);
   Serial.printf("[UI] Brightness Adjusted to: %d\n", new_brightness);
+}
+
+static void night_wake_timer_cb(lv_timer_t * timer) {
+  (void)timer;
+  nightDisplayTempWake = false;
+  if (nightModeActive && isNightTime()) {
+    adjustBrightness(night_brightness);
+  }
+}
+
+void endNightDisplayTempWake() {
+  nightDisplayTempWake = false;
+  if (night_wake_timer) {
+    lv_timer_delete(night_wake_timer);
+    night_wake_timer = nullptr;
+  }
+}
+
+void applyNightModeBrightness() {
+  if (nightDisplayTempWake) return;
+  adjustBrightness(night_brightness);
+}
+
+void handleNightModeTouchWake() {
+  if (!nightModeActive || !isNightTime()) return;
+
+  nightDisplayTempWake = true;
+  adjustBrightness(NIGHT_TOUCH_WAKE_BRIGHTNESS);
+
+  if (!night_wake_timer) {
+    night_wake_timer = lv_timer_create(night_wake_timer_cb, NIGHT_TOUCH_WAKE_MS, NULL);
+  }
+  lv_timer_reset(night_wake_timer);
 }
 
 static void language_selection_event_handler(lv_event_t * e) {
@@ -185,7 +221,8 @@ static void brightness_slider_event_cb(lv_event_t * e) {
 static void night_brightness_slider_event_cb(lv_event_t * e) {
     lv_obj_t * slider = (lv_obj_t *) lv_event_get_target(e);
     night_brightness = (uint8_t) lv_slider_get_value(slider);
- 
+
+    endNightDisplayTempWake();
     if (isNightTime() && nightModeActive) adjustBrightness(night_brightness);
 
     if (lv_event_get_code(e) == LV_EVENT_RELEASED) saveSettings();
@@ -256,13 +293,15 @@ static void night_mode_switch_handler(lv_event_t * e) {
         nightModeActive = true;
 
         if (isNightTime()) {
-            adjustBrightness(night_brightness);
-            //esp_light_sleep_start();
+            endNightDisplayTempWake();
+            applyNightModeBrightness();
         } else {
+            endNightDisplayTempWake();
             adjustBrightness(brightness);
         }
     } else {
         nightModeActive = false;
+        endNightDisplayTempWake();
         adjustBrightness(brightness);
     }
 
@@ -288,8 +327,10 @@ static void night_mode_roller_event_handler(lv_event_t * e) {
       Serial.printf("[UI] Night Mode Timings: %02d:%02d -> %02d:%02d", nightModeTimes.start_hours, nightModeTimes.start_minutes, nightModeTimes.stop_hours, nightModeTimes.stop_minutes);
     
       if (nightModeActive && isNightTime()) {
-        adjustBrightness(night_brightness);
+        endNightDisplayTempWake();
+        applyNightModeBrightness();
       } else {
+        endNightDisplayTempWake();
         adjustBrightness(brightness);
       }
 
@@ -1683,7 +1724,7 @@ void create_or_reload_settings_ui() {
   create_time_roller(cont, LV_SYMBOL_EYE_CLOSE, localized_text->night_mode);
 
   // Night Mode Brightness
-  night_brightness_slider = create_slider(cont, LV_SYMBOL_IMAGE, localized_text->night_brightness, 5, 255, night_brightness);
+  night_brightness_slider = create_slider(cont, LV_SYMBOL_IMAGE, localized_text->night_brightness, 0, 255, night_brightness);
   lv_obj_add_event_cb(night_brightness_slider, night_brightness_slider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
   lv_obj_add_event_cb(night_brightness_slider, night_brightness_slider_event_cb, LV_EVENT_RELEASED, NULL);
 
