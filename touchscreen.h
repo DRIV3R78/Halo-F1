@@ -10,7 +10,10 @@ BB_SPI_LCD * lcd;
 uint16_t touchMinX = TOUCH_MIN_X, touchMaxX = TOUCH_MAX_X, touchMinY = TOUCH_MIN_Y, touchMaxY = TOUCH_MAX_Y;
 TOUCHINFO ti;
 
+void handleNightModeTouchWake();
+
 void touch_read( lv_indev_t * indev, lv_indev_data_t * data ) {
+  static bool touch_was_pressed = false;
 
 #ifdef TOUCH_CAPACITIVE
   // Capacitive touch needs to be mapped to display pixels
@@ -29,6 +32,10 @@ void touch_read( lv_indev_t * indev, lv_indev_data_t * data ) {
     data->point.y = lv_display_get_vertical_resolution(NULL) - map(ti.x[0], touchMinX, touchMaxX, 1, lv_display_get_vertical_resolution(NULL)); // X touch mapping
     data->point.x = map(ti.y[0], touchMinY, touchMaxY, 1, lv_display_get_horizontal_resolution(NULL)); // Y touch mapping
     data->state = LV_INDEV_STATE_PRESSED;
+    if (!touch_was_pressed) {
+      touch_was_pressed = true;
+      handleNightModeTouchWake();
+    }
 #else
   // Resistive touch is already mapped by the bb_spi_lcd library
   if(lcd->rtReadTouch(&ti)) {
@@ -41,6 +48,10 @@ void touch_read( lv_indev_t * indev, lv_indev_data_t * data ) {
     data->point.x = lv_display_get_horizontal_resolution(NULL) - ti.x[0];
     data->point.y = map(ti.y[0], touchMinY, touchMaxY, 1, lv_display_get_vertical_resolution(NULL));
     data->state = LV_INDEV_STATE_PRESSED;
+    if (!touch_was_pressed) {
+      touch_was_pressed = true;
+      handleNightModeTouchWake();
+    }
 #endif
 
 
@@ -50,6 +61,7 @@ void touch_read( lv_indev_t * indev, lv_indev_data_t * data ) {
     Serial.println(data->point.y);*/
   } else {
     data->state = LV_INDEV_STATE_RELEASED;
+    touch_was_pressed = false;
   }
 }
 // END TOUCH SCREEN
