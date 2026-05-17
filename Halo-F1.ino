@@ -95,6 +95,8 @@ struct NightModeTimes {
 NightModeTimes nightModeTimes = {23, 0, 8, 0};
 
 bool nightModeActive = true;
+bool nightDisplayTempWake = false;
+lv_timer_t * night_wake_timer = nullptr;
 
 bool timezoneOverrideActive = false;
 lv_obj_t* timezone_override_switch = nullptr;
@@ -309,8 +311,8 @@ void setup() {
 
   loadSettings(); //init preferences storage, check for saved settings and load them if present
 
-  if(isNightTime() && nightModeActive) { // Adjust brightness after loading settings.
-    adjustBrightness(night_brightness);
+  if(isNightTime() && nightModeActive) {
+    applyNightModeBrightness();
   } else {
     adjustBrightness(brightness);
   }
