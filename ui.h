@@ -105,6 +105,20 @@ static void standings_scroll_switch_handler(lv_event_t * e) {
     create_or_reload_race_sessions(true);
 }
 
+static void clock_24h_switch_handler(lv_event_t * e) {
+    lv_obj_t * sw = (lv_obj_t *) lv_event_get_target(e);
+    use24hClock = lv_obj_has_state(sw, LV_STATE_CHECKED);
+    saveSettings();
+    force_update_ui();
+}
+
+static void temperature_unit_switch_handler(lv_event_t * e) {
+    lv_obj_t * sw = (lv_obj_t *) lv_event_get_target(e);
+    useFahrenheit = lv_obj_has_state(sw, LV_STATE_CHECKED);
+    saveSettings();
+    force_update_ui();
+}
+
 static void news_tab_button_clicked_handler(lv_event_t * e) {
     lv_event_code_t code = lv_event_get_code(e);
     if (code != LV_EVENT_CLICKED &&
@@ -115,10 +129,46 @@ static void news_tab_button_clicked_handler(lv_event_t * e) {
 }
 
 
+static constexpr uint8_t NIGHT_TOUCH_WAKE_BRIGHTNESS = 128; // 50% of 255
+static constexpr uint32_t NIGHT_TOUCH_WAKE_MS = 10000;
+
 void adjustBrightness(uint8_t new_brightness) {
   lv_bb_spi_lcd_t * dsc = (lv_bb_spi_lcd_t *)lv_display_get_driver_data(disp);
   dsc->lcd->setBrightness(new_brightness);
   Serial.printf("[UI] Brightness Adjusted to: %d\n", new_brightness);
+}
+
+static void night_wake_timer_cb(lv_timer_t * timer) {
+  (void)timer;
+  nightDisplayTempWake = false;
+  if (nightModeActive && isNightTime()) {
+    adjustBrightness(night_brightness);
+  }
+}
+
+void endNightDisplayTempWake() {
+  nightDisplayTempWake = false;
+  if (night_wake_timer) {
+    lv_timer_delete(night_wake_timer);
+    night_wake_timer = nullptr;
+  }
+}
+
+void applyNightModeBrightness() {
+  if (nightDisplayTempWake) return;
+  adjustBrightness(night_brightness);
+}
+
+void handleNightModeTouchWake() {
+  if (!nightModeActive || !isNightTime()) return;
+
+  nightDisplayTempWake = true;
+  adjustBrightness(NIGHT_TOUCH_WAKE_BRIGHTNESS);
+
+  if (!night_wake_timer) {
+    night_wake_timer = lv_timer_create(night_wake_timer_cb, NIGHT_TOUCH_WAKE_MS, NULL);
+  }
+  lv_timer_reset(night_wake_timer);
 }
 
 static void language_selection_event_handler(lv_event_t * e) {
@@ -171,7 +221,8 @@ static void brightness_slider_event_cb(lv_event_t * e) {
 static void night_brightness_slider_event_cb(lv_event_t * e) {
     lv_obj_t * slider = (lv_obj_t *) lv_event_get_target(e);
     night_brightness = (uint8_t) lv_slider_get_value(slider);
- 
+
+    endNightDisplayTempWake();
     if (isNightTime() && nightModeActive) adjustBrightness(night_brightness);
 
     if (lv_event_get_code(e) == LV_EVENT_RELEASED) saveSettings();
@@ -198,7 +249,6 @@ static void no_spoiler_switch_handler(lv_event_t * e) {
 
 
 static void timezone_roller_event_handler(lv_event_t * e) {
-    if (lv_event_get_code(e) == LV_EVENT_RELEASED) saveSettings();
     if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
     if (!timezoneOverrideActive) return;
     if (!timezoneRoller.hours) return;
@@ -218,21 +268,21 @@ static void timezone_roller_event_handler(lv_event_t * e) {
     if (offset_minutes >  720) offset_minutes -= 1440; // > +12h → wrap negative
     if (offset_minutes < -720) offset_minutes += 1440; // < -12h → wrap positive
 
-    UTCoffsetHours   = offset_minutes / 60;
-    //UTCoffsetMinutes = offset_minutes % 60;
-    UTCoffset        = (long)offset_minutes * 60;
+    UTCoffsetHours = offset_minutes / 60;
+    UTCoffset      = (long)offset_minutes * 60;
+    saveSettings();
 }
 
 static void timezone_override_switch_handler(lv_event_t * e) {
     lv_obj_t* sw = (lv_obj_t*)lv_event_get_target(e);
     timezoneOverrideActive = lv_obj_has_state(sw, LV_STATE_CHECKED);
 
-    if (!timezoneOverrideActive) {
+    if (timezoneOverrideActive) {
+        applyStoredTimezoneOffset();
+    } else {
         // Re-fetch from ipapi so we snap back to real offset
-        UTCoffset = getUtcOffsetInSeconds();
+        UTCoffset = (long)getUtcOffsetInSeconds();
     }
-    // If activating: rollers already reflect current UTCoffset (set during creation),
-    // so we just stop future ipapi calls from overwriting.
     saveSettings();
 }
 
@@ -243,13 +293,15 @@ static void night_mode_switch_handler(lv_event_t * e) {
         nightModeActive = true;
 
         if (isNightTime()) {
-            adjustBrightness(night_brightness);
-            //esp_light_sleep_start();
+            endNightDisplayTempWake();
+            applyNightModeBrightness();
         } else {
+            endNightDisplayTempWake();
             adjustBrightness(brightness);
         }
     } else {
         nightModeActive = false;
+        endNightDisplayTempWake();
         adjustBrightness(brightness);
     }
 
@@ -275,8 +327,10 @@ static void night_mode_roller_event_handler(lv_event_t * e) {
       Serial.printf("[UI] Night Mode Timings: %02d:%02d -> %02d:%02d", nightModeTimes.start_hours, nightModeTimes.start_minutes, nightModeTimes.stop_hours, nightModeTimes.stop_minutes);
     
       if (nightModeActive && isNightTime()) {
-        adjustBrightness(night_brightness);
+        endNightDisplayTempWake();
+        applyNightModeBrightness();
       } else {
+        endNightDisplayTempWake();
         adjustBrightness(brightness);
       }
 
@@ -741,6 +795,18 @@ lv_obj_t* create_chequered_stripe(lv_obj_t* parent) {
     return stripe;
 }
 
+static void halo_style_settings_dropdown(lv_obj_t *dd) {
+    lv_obj_set_style_text_font(dd, &montserrat_12, LV_PART_MAIN);
+    lv_obj_t *list = lv_dropdown_get_list(dd);
+    if (list) {
+        lv_obj_set_style_text_font(list, &montserrat_12, LV_PART_MAIN);
+    }
+}
+
+static void halo_style_settings_roller(lv_obj_t *roller) {
+    lv_obj_set_style_text_font(roller, &montserrat_12, LV_PART_MAIN);
+}
+
 lv_obj_t * create_text(lv_obj_t * parent, const char * icon, const char * txt, int builder_variant) {
     lv_obj_t * obj = lv_menu_cont_create(parent);
 
@@ -766,7 +832,14 @@ lv_obj_t * create_text(lv_obj_t * parent, const char * icon, const char * txt, i
 
     
     lv_obj_set_style_text_color(obj, lv_color_hex(0xcccccc), 0);
-    lv_obj_set_style_pad_ver(obj, 20, 0);
+    lv_obj_set_style_text_font(obj, &montserrat_12, 0);
+    lv_obj_set_style_pad_ver(obj, 11, 0);
+    if (img) {
+        lv_obj_set_style_text_font(img, &montserrat_12, 0);
+    }
+    if (label) {
+        lv_obj_set_style_text_font(label, &montserrat_12, 0);
+    }
 
     return obj;
 }
@@ -805,6 +878,8 @@ lv_obj_t * create_language_selector(lv_obj_t * parent) {
   }
   lv_dropdown_set_selected(selector, currentIndex);
 
+  halo_style_settings_dropdown(selector);
+
   return selector;
 }
 
@@ -837,6 +912,8 @@ lv_obj_t * create_news_feed_selector(lv_obj_t * parent) {
   lv_obj_add_flag(selector, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
   lv_obj_set_width(selector, LV_PCT(100));
 
+  halo_style_settings_dropdown(selector);
+
   return selector;
 }
 
@@ -852,6 +929,8 @@ lv_obj_t * create_slider(lv_obj_t * parent, const char * icon, const char * txt,
 
     lv_obj_add_flag(slider, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
 
+    halo_style_settings_slider(slider);
+
     return slider;
 }
 
@@ -860,6 +939,7 @@ lv_obj_t * create_switch(lv_obj_t * parent, const char * icon, const char * txt,
     lv_obj_t * sw = lv_switch_create(obj);
 
     halo_set_switch_state(sw, chk);
+    halo_style_settings_switch(sw);
 
     return sw;
 }
@@ -869,6 +949,7 @@ lv_obj_t * create_time_roller(lv_obj_t *parent, const char *icon, const char *te
     lv_obj_t * sw = lv_switch_create(obj);
 
     halo_set_switch_state(sw, nightModeActive);
+    halo_style_settings_switch(sw);
 
     lv_obj_add_event_cb(sw, night_mode_switch_handler, LV_EVENT_VALUE_CHANGED, NULL);
 
@@ -892,6 +973,7 @@ lv_obj_t * create_time_roller(lv_obj_t *parent, const char *icon, const char *te
 
     lv_obj_t * arrowLabel = lv_label_create(obj);
     lv_label_set_text(arrowLabel, LV_SYMBOL_RIGHT);
+    lv_obj_set_style_text_font(arrowLabel, &montserrat_12, 0);
 
     nightModeStopRoller.hours = lv_roller_create(obj);
     nightModeStopRoller.minutes = lv_roller_create(obj);
@@ -913,6 +995,12 @@ lv_obj_t * create_time_roller(lv_obj_t *parent, const char *icon, const char *te
     lv_obj_add_event_cb(nightModeStartRoller.minutes, night_mode_roller_event_handler, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(nightModeStopRoller.hours, night_mode_roller_event_handler, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(nightModeStopRoller.minutes, night_mode_roller_event_handler, LV_EVENT_ALL, NULL);
+
+    halo_style_settings_roller(nightModeStartRoller.hours);
+    halo_style_settings_roller(nightModeStartRoller.minutes);
+    halo_style_settings_roller(nightModeStopRoller.hours);
+    halo_style_settings_roller(nightModeStopRoller.minutes);
+
     return obj;
 }
 
@@ -923,8 +1011,8 @@ lv_obj_t * create_settings_divider(lv_obj_t *parent, const char *title = nullptr
     lv_obj_t *wrapper = lv_obj_create(parent);
     lv_obj_remove_style_all(wrapper);
     lv_obj_set_size(wrapper, LV_PCT(100), LV_SIZE_CONTENT);
-    lv_obj_set_style_pad_ver(wrapper, 10, LV_PART_MAIN);
-    lv_obj_set_style_pad_hor(wrapper, 8, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(wrapper, 5, LV_PART_MAIN);
+    lv_obj_set_style_pad_hor(wrapper, 6, LV_PART_MAIN);
     lv_obj_set_flex_flow(wrapper, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(wrapper,
         LV_FLEX_ALIGN_START,
@@ -958,6 +1046,7 @@ lv_obj_t * create_timezone_roller(lv_obj_t *parent, const char *icon, const char
 
     timezone_override_switch = lv_switch_create(obj);
     halo_set_switch_state(timezone_override_switch, timezoneOverrideActive);
+    halo_style_settings_switch(timezone_override_switch);
 
     lv_obj_add_event_cb(timezone_override_switch, timezone_override_switch_handler, LV_EVENT_VALUE_CHANGED, NULL);
 
@@ -987,6 +1076,8 @@ lv_obj_t * create_timezone_roller(lv_obj_t *parent, const char *icon, const char
 
     lv_obj_add_event_cb(timezoneRoller.hours, timezone_roller_event_handler, LV_EVENT_ALL, NULL);
 
+    halo_style_settings_roller(timezoneRoller.hours);
+
     return obj;
 }
 
@@ -1003,7 +1094,7 @@ lv_obj_t * create_button(lv_obj_t *parent, const char *icon, const char *text, l
     if (text) {
         lv_obj_t * lbl = lv_label_create(btn);
         lv_label_set_text(lbl, text);
-        lv_obj_set_style_text_font(lbl, &montserrat_14, 0);
+        lv_obj_set_style_text_font(lbl, &montserrat_12, 0);
     }
 
     if (event_handler) {
@@ -1191,9 +1282,12 @@ void create_or_reload_race_sessions(bool force_reload) {
     if (show_weather) {
         lv_obj_t *w_lbl = lv_label_create(session_row);
         char w_buf[20];
-        snprintf(w_buf, sizeof(w_buf), " %s %d\xC2\xB0",
+        int t_show = halo_display_temp_from_c(session_weather[i].temp_c);
+        char tu = useFahrenheit ? 'F' : 'C';
+        snprintf(w_buf, sizeof(w_buf), " %s %d\xC2\xB0%c",
                  getWeatherIcon(session_weather[i].wmo_code),
-                 (int)session_weather[i].temp_c);
+                 t_show,
+                 tu);
         lv_label_set_text(w_lbl, w_buf);
 
         lv_obj_set_flex_grow(w_lbl, 0);
@@ -1371,7 +1465,7 @@ void create_or_reload_race_ui() {
 
   lv_obj_align(racetab_labels.date, LV_ALIGN_TOP_LEFT, 0, 0);
   lv_obj_set_style_text_align(racetab_labels.date, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
-  lv_label_set_long_mode(racetab_labels.date, LV_LABEL_LONG_MODE_DOTS); 
+  lv_label_set_long_mode(racetab_labels.date, LV_LABEL_LONG_MODE_DOTS);
   lv_obj_set_width(racetab_labels.date, 0.9 * SCREEN_WIDTH);
   lv_obj_set_style_bg_opa(racetab_labels.date, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
   lv_obj_set_style_bg_color(racetab_labels.date, lv_color_black(), LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -1382,9 +1476,7 @@ void create_or_reload_race_ui() {
   lv_obj_set_style_pad_top(racetab_labels.date, 4, LV_PART_MAIN | LV_STATE_DEFAULT);
   lv_obj_set_style_pad_left(racetab_labels.date, 4, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-
   lv_obj_set_style_text_font(racetab_labels.date, &montserrat_18, LV_PART_MAIN | LV_STATE_DEFAULT);
-
 
   //---------//
   //  CLOCK  //
@@ -1394,13 +1486,12 @@ void create_or_reload_race_ui() {
 
   lv_obj_align(racetab_labels.clock, LV_ALIGN_TOP_RIGHT, 0, 0);
   lv_obj_set_style_text_align(racetab_labels.clock, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN | LV_STATE_DEFAULT);
-  lv_label_set_long_mode(racetab_labels.clock, LV_LABEL_LONG_MODE_CLIP); 
+  lv_label_set_long_mode(racetab_labels.clock, LV_LABEL_LONG_MODE_CLIP);
   lv_obj_set_style_bg_opa(racetab_labels.clock, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
   lv_obj_set_style_bg_color(racetab_labels.clock, lv_color_black(), LV_PART_MAIN | LV_STATE_DEFAULT);
   lv_obj_set_style_pad_left(racetab_labels.clock, 4, LV_PART_MAIN | LV_STATE_DEFAULT);
 
   lv_obj_set_style_text_font(racetab_labels.clock, &montserrat_38, LV_PART_MAIN | LV_STATE_DEFAULT);
-
 
   //------------//
   //  RACENAME  //
@@ -1619,6 +1710,9 @@ void create_or_reload_settings_ui() {
   create_settings_divider(cont, localized_text->time_settings);
   create_timezone_roller(cont, LV_SYMBOL_LOOP, localized_text->enable_timezone_override);
 
+  clock_24h_switch = create_switch(cont, LV_SYMBOL_REFRESH, localized_text->clock_24h_label, use24hClock);
+  lv_obj_add_event_cb(clock_24h_switch, clock_24h_switch_handler, LV_EVENT_VALUE_CHANGED, NULL);
+
   // -- Display Settings --
   create_settings_divider(cont, localized_text->display);
   // Brightness
@@ -1630,9 +1724,12 @@ void create_or_reload_settings_ui() {
   create_time_roller(cont, LV_SYMBOL_EYE_CLOSE, localized_text->night_mode);
 
   // Night Mode Brightness
-  night_brightness_slider = create_slider(cont, LV_SYMBOL_IMAGE, localized_text->night_brightness, 5, 255, night_brightness);
+  night_brightness_slider = create_slider(cont, LV_SYMBOL_IMAGE, localized_text->night_brightness, 0, 255, night_brightness);
   lv_obj_add_event_cb(night_brightness_slider, night_brightness_slider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
   lv_obj_add_event_cb(night_brightness_slider, night_brightness_slider_event_cb, LV_EVENT_RELEASED, NULL);
+
+  temp_unit_switch = create_switch(cont, LV_SYMBOL_CHARGE, localized_text->temperature_fahrenheit_label, useFahrenheit);
+  lv_obj_add_event_cb(temp_unit_switch, temperature_unit_switch_handler, LV_EVENT_VALUE_CHANGED, NULL);
 
   // Restart WiFi Manager Button
   // Doesn't work currently, maybe can be done by setting a global flag, save it to flash, then restart the device
@@ -1654,14 +1751,14 @@ void create_or_reload_settings_ui() {
     lv_obj_set_width(made_by_label, LV_PCT(100));
     lv_obj_set_style_text_font(made_by_label, &montserrat_12, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(made_by_label, lv_color_hex(0x555555), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_bottom(made_by_label, 20, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_bottom(made_by_label, 12, LV_PART_MAIN | LV_STATE_DEFAULT);
 
   // Button "Need Help?" that opens a modal
     lv_obj_t *help_button = create_button(cont, nullptr, localized_text->need_help_button_text, [](lv_event_t *e) {
         show_notification_popup(localized_text->help_dialog_title, localized_text->help_dialog_message, "https://discord.gg/qAKaPa5n5m");
     });
 
-    lv_obj_set_style_margin_bottom(help_button, 20, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_margin_bottom(help_button, 12, LV_PART_MAIN | LV_STATE_DEFAULT);
 
  // Show QR Code with device UUID so the user can scan with the phone to copy
  // Not needed for now

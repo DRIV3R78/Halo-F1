@@ -19,12 +19,14 @@ typedef struct {
   const char* FP2;
   const char* FP3;
   const char* qualifying;
+  const char* quali;
   const char* Q1;
   const char* Q2;
   const char* Q3;
   const char* race;
   const char* sprint_race;
   const char* sprint_q;
+  const char* sprint_quali;
   const char* free_practice;
   const char* free_practice_1;
   const char* free_practice_2;
@@ -57,6 +59,8 @@ typedef struct {
   const char* news_feed_label;
   const char* news_pulse_effect_label;
   const char* standings_scroll_mode_label;
+  const char* clock_24h_label;
+  const char* temperature_fahrenheit_label;
 } LanguageStrings;
 
 const LanguageStrings language_strings_en PROGMEM = {
@@ -79,20 +83,22 @@ const LanguageStrings language_strings_en PROGMEM = {
   "FP1",
   "FP2",
   "FP3",
-  "Qualifying",
+  "Quali",
+  "Quali",
   "Q1",
   "Q2",
   "Q3",
   "Race",
   "Race", // was "Sprint Race"
-  "Qualifying", // was "Sprint Qualy"
+  "Quali",
+  "Quali",
   "Free Practice",
   "Free Practice 1",
   "Free Practice 2",
   "Free Practice 3",
   "Upcoming Grand Prix",
   "Upcoming Session",
-  "Sprint Weekend",
+  "Race Weekend",
   "DRIVER STANDINGS",
   "TEAM STANDINGS",
   "Scan to Read",
@@ -118,6 +124,8 @@ const LanguageStrings language_strings_en PROGMEM = {
   "News Feed",
   "News Pulse Effect",
   "Auto Scroll",
+  "24-hour time",
+  "Fahrenheit (\xC2\xB0""F)",
 };
 
 const LanguageStrings language_strings_it PROGMEM = {
@@ -140,20 +148,22 @@ const LanguageStrings language_strings_it PROGMEM = {
   "PL1",
   "PL2",
   "PL3",
-  "Qualifiche",
+  "Quali",
+  "Quali",
   "Q1",
   "Q2",
   "Q3",
   "Gara",
   "Gara", // sprint race
-  "Qualifiche", // sprint qualifying
+  "Quali",
+  "Quali",
   "Prove Libere",
   "Prove Libere 1",
   "Prove Libere 2",
   "Prove Libere 3",
   "Prossimo Gran Premio",
   "Prossima Sessione",
-  "Sprint Weekend",
+  "Weekend di gara",
   "CLASSIFICA PILOTI",
   "CLASSIFICA TEAM",
   "Scansiona per leggere",
@@ -179,6 +189,8 @@ const LanguageStrings language_strings_it PROGMEM = {
   "Feed Notizie",
   "Effetto Pulsazione Notizie",
   "Scorrimento Auto",
+  "Orologio 24 ore",
+  "Fahrenheit (\xC2\xB0""F)",
 };
 
 const LanguageStrings language_strings_es PROGMEM = {
@@ -201,20 +213,22 @@ const LanguageStrings language_strings_es PROGMEM = {
   "FP1",
   "FP2",
   "FP3",
-  "Clasificación",
+  "Quali",
+  "Quali",
   "Q1",
   "Q2",
   "Q3",
   "Carrera",
   "Carrera", // sprint race
-  "Clasificación", // sprint qualifying
+  "Quali",
+  "Quali",
   "Entrenamiento libre",
   "Entrenamiento libre 1",
   "Entrenamiento libre 2",
   "Entrenamiento libre 3",
   "Próximo Gran Premio",
   "Próxima sesión",
-  "Fin de semana Sprint",
+  "Fin de semana de carrera",
   "PILOTOS",
   "EQUIPOS",
   "Escanear para leer",
@@ -240,6 +254,8 @@ const LanguageStrings language_strings_es PROGMEM = {
   "Fuente de Noticias",
   "Efecto Pulso de Noticias",
   "Auto Scroll",
+  "Reloj de 24 horas",
+  "Fahrenheit (\xC2\xB0""F)",
 };
 
 const LanguageStrings language_strings_fr PROGMEM = {
@@ -262,20 +278,22 @@ const LanguageStrings language_strings_fr PROGMEM = {
   "EL1",
   "EL2",
   "EL3",
-  "Qualifications",
+  "Quali",
+  "Quali",
   "Q1",
   "Q2",
   "Q3",
   "Course",
   "Course", // sprint race
-  "Qualifications", // sprint qualifying
+  "Quali",
+  "Quali",
   "Essais libres",
   "Essais libres 1",
   "Essais libres 2",
   "Essais libres 3",
   "Prochain Grand Prix",
   "Prochaine session",
-  "Week-end Sprint",
+  "Week-end de course",
   "PILOTES",
   "ÉQUIPES",
   "Scanner pour lire",
@@ -301,6 +319,8 @@ const LanguageStrings language_strings_fr PROGMEM = {
   "Source d'Actualités",
   "Effet de Pulsation des Actualités",
   "Defilement Auto",
+  "Format 24 h",
+  "Fahrenheit (\xC2\xB0""F)",
 };
 
 const LanguageStrings language_strings_nl PROGMEM = {
@@ -323,20 +343,22 @@ const LanguageStrings language_strings_nl PROGMEM = {
   "VT1",
   "VT2",
   "VT3",
-  "Kwalificatie",
+  "Quali",
+  "Quali",
   "Q1",
   "Q2",
   "Q3",
   "Race",
   "Race", // sprint race
-  "Kwalificatie", // sprint qualifying
+  "Quali",
+  "Quali",
   "Vrije training",
   "Vrije training 1",
   "Vrije training 2",
   "Vrije training 3",
   "Komende Grand Prix",
   "Komende sessie",
-  "Sprintweekend",
+  "Race-weekend",
   "COUREURS",
   "TEAMS",
   "Scan om te lezen",
@@ -362,6 +384,8 @@ const LanguageStrings language_strings_nl PROGMEM = {
   "Nieuwsbron",
   "Nieuws Pulse Effect",
   "Auto Scroll",
+  "24-uurs klok",
+  "Fahrenheit (\xC2\xB0""F)",
 };
 
 const LanguageStrings language_strings_de PROGMEM = {
@@ -384,20 +408,22 @@ const LanguageStrings language_strings_de PROGMEM = {
   "FT1",
   "FT2",
   "FT3",
-  "Qualifying",
+  "Quali",
+  "Quali",
   "Q1",
   "Q2",
   "Q3",
   "Rennen",
   "Rennen", // sprint race
-  "Qualifying", // sprint qualifying
+  "Quali",
+  "Quali",
   "Freies Training",
   "Freies Training 1",
   "Freies Training 2",
   "Freies Training 3",
   "Nächster Grand Prix",
   "Nächste Sitzung",
-  "Sprint-Wochenende",
+  "Rennwochenende",
   "FAHRER-WERTUNG",
   "TEAM-WERTUNG",
   "Scannen zum Lesen",
@@ -423,6 +449,8 @@ const LanguageStrings language_strings_de PROGMEM = {
   "News-Feed",
   "News-Puls Effekt",
   "Auto-Scroll",
+  "24-Stunden-Zeitanzeige",
+  "Fahrenheit (\xC2\xB0""F)",
 };
 
 const LanguageStrings language_strings_pt PROGMEM = {
@@ -445,20 +473,22 @@ const LanguageStrings language_strings_pt PROGMEM = {
   "TL1",
   "TL2",
   "TL3",
-  "Classificação",
+  "Quali",
+  "Quali",
   "Q1",
   "Q2",
   "Q3",
   "Corrida",
   "Corrida", // sprint race
-  "Classificação", // sprint qualifying
+  "Quali",
+  "Quali",
   "Treino Livre",
   "Treino Livre 1",
   "Treino Livre 2",
   "Treino Livre 3",
   "Próximo Grande Prêmio",
   "Próxima Sessão",
-  "Fim de Semana Sprint",
+  "Fim de semana de corrida",
   "PILOTOS",
   "EQUIPES",
   "Escaneie para Ler",
@@ -484,6 +514,8 @@ const LanguageStrings language_strings_pt PROGMEM = {
   "Fonte de Notícias",
   "Efeito de Pulso de Notícias",
   "Rolagem Auto",
+  "Relógio de 24 horas",
+  "Fahrenheit (\xC2\xB0""F)",
 };
 
 const LanguageStrings language_strings_no PROGMEM = {
@@ -506,20 +538,22 @@ const LanguageStrings language_strings_no PROGMEM = {
   "FP1",
   "FP2",
   "FP3",
-  "Kvalifisering",
+  "Quali",
+  "Quali",
   "Q1",
   "Q2",
   "Q3",
   "Løp",
   "Løp", // sprint race
-  "Kvalifisering", // sprint qualifying
+  "Quali",
+  "Quali",
   "Trening",
   "Trening 1",
   "Trening 2",
   "Trening 3",
   "Kommende Grand Prix",
   "Kommende økt",
-  "Sprinthelg",
+  "Løpshelg",
   "FØRERPOENG",
   "LAGPOENG",
   "Skann for å lese",
@@ -545,6 +579,8 @@ const LanguageStrings language_strings_no PROGMEM = {
   "Nyhetskilde",
   "Nyheter Pulseffekt",
   "Auto-rulling",
+  "24-timers klokke",
+  "Fahrenheit (\xC2\xB0""F)",
 };
 
 const LanguageStrings language_strings_pl PROGMEM = {
@@ -567,20 +603,22 @@ const LanguageStrings language_strings_pl PROGMEM = {
   "FP1",
   "FP2",
   "FP3",
-  "Kwalifikacje",
+  "Quali",
+  "Quali",
   "Q1",
   "Q2",
   "Q3",
   "Wyścig",
-  "Sprint", // sprint race
-  "Kwalifikacje", // sprint qualifying
+  "Wyścig", // sprint race
+  "Quali",
+  "Quali",
   "Sesja treningowa",
   "Sesja treningowa 1",
   "Sesja treningowa 2",
   "Sesja treningowa 3",
   "Nadchodzące Grand Prix",
   "Nadchodząca Sesja",
-  "Weekend Sprinterski",
+  "Weekend wyścigowy",
   "KIEROWCÓW",
   "ZESPOŁÓW",
   "Skanuj Aby Przeczytac",
@@ -606,6 +644,8 @@ const LanguageStrings language_strings_pl PROGMEM = {
   "Źródło Wiadomości",
   "Efekt Pulsu Wiadomosci",
   "Auto przewijanie",
+  "Format 24 godzinny",
+  "Fahrenheit (\xC2\xB0""F)",
 };
 
 uint32_t get_team_color(String team) {

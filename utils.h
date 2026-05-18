@@ -1,7 +1,11 @@
+#include <math.h>
+
 // forward declaration
 String current_f1_champion = "4"; // Norris
 void create_or_reload_race_sessions(bool force_reload = false);
 void adjustBrightness(uint8_t brightness);
+void endNightDisplayTempWake();
+void applyNightModeBrightness();
 void create_or_reload_settings_ui();
 void sendStatisticData(lv_timer_t *timer);
 
@@ -22,6 +26,24 @@ String getDeviceUUID() {
   return String(uuid);
 }
 
+/** Local time for race-tab clock and session rows (12 h: "12:34 AM"). */
+static inline void halo_format_local_time(char *buf, size_t sz, int hour24, int min) {
+    if (use24hClock) {
+        snprintf(buf, sz, "%02d:%02d", hour24, min);
+    } else {
+        int h12 = hour24 % 12;
+        if (h12 == 0) h12 = 12;
+        const char *ap = (hour24 < 12) ? "AM" : "PM";
+        snprintf(buf, sz, "%d:%02d %s", h12, min, ap);
+    }
+}
+
+/** Weather badge: stored °C from API → display value for °C or °F. */
+static inline int halo_display_temp_from_c(int8_t temp_c) {
+    if (!useFahrenheit) return (int)temp_c;
+    return (int)roundf((float)temp_c * 9.0f / 5.0f + 32.0f);
+}
+
 // Formats Lap Time from seconds to M:SS.sss
 String formatLapTime(float seconds) {
   int mins = (int)(seconds / 60);          // whole minutes
@@ -34,10 +56,16 @@ String formatLapTime(float seconds) {
   return String(buffer);
 }
 
-// API call to get current timezone offset
+/** Manual override: rebuild seconds offset from persisted whole hours (NVS / roller). */
+static inline void applyStoredTimezoneOffset() {
+  UTCoffset = (long)UTCoffsetHours * 3600;
+}
+
+// API call to get current timezone offset (auto mode only; never overwrites manual override)
 int64_t getUtcOffsetInSeconds() {
   if (timezoneOverrideActive) {
-    return UTCoffset; // just echo back whatever the rollers set
+    applyStoredTimezoneOffset();
+    return UTCoffset;
   }
 
   HTTPClient client;
@@ -47,18 +75,12 @@ int64_t getUtcOffsetInSeconds() {
   client.begin(url.c_str());
   int statusCode = client.GET();
   //debug->println("Status code: %i", statusCode);
-  if (statusCode != 200 && statusCode != 429 && statusCode != -11) {
-    //debug.println("Error getting local time zone, status code: %i\n", statusCode);
-    return 0;
+  if (statusCode != 200) {
+    // Keep last known offset on network errors, rate limits, etc.
+    return UTCoffset;
   }
 
-  std::string offset;
-
-  if (statusCode == 429 || statusCode == -11) {
-    offset = "+0000"; // defaults to UTC
-  } else {
-    offset = std::string(client.getString().c_str());
-  }
+  std::string offset = std::string(client.getString().c_str());
 
   client.end();
 
@@ -159,10 +181,8 @@ const char* getLocalizedSessionName(RaceSession &session) {
   if (session.name == "FP1") return localized_text->FP1;
   if (session.name == "FP2") return localized_text->FP2;
   if (session.name == "FP3") return localized_text->FP3;
-  if (session.name == "Qualifying") return localized_text->qualifying;
-  if (session.name == "Race") return localized_text->race;
-  if (session.name == "Sprint Qualifying") return localized_text->sprint_q;
-  if (session.name == "Sprint Race") return localized_text->sprint_race;
+  if (session.name == "Qualifying" || session.name == "Sprint Qualifying") return localized_text->quali;
+  if (session.name == "Race" || session.name == "Sprint Race") return localized_text->race;
 
   return session.name.c_str();
 }
@@ -181,7 +201,7 @@ DriverStanding* getDriverInfoByNumber(const String& driverNumber) {
 // Formats session datetime 
 // @param -> iWant = "all", "date", "time"
 char* getSessionDateTimeFormatted(String utcSessionDate, String utcSessionTime, String iWant = "all") {
-    static char formatted[50]; // static so it persists after return
+    static char formatted[72]; // static so it persists after return (12 h + long month names)
 
     // Remove trailing 'Z' if present
     if (utcSessionTime.endsWith("Z")) {
@@ -209,26 +229,29 @@ char* getSessionDateTimeFormatted(String utcSessionDate, String utcSessionTime, 
         snprintf(formatted, sizeof(formatted), "%s %d %s",
                  localized_text->short_days[adjustedTime.tm_wday],
                  adjustedTime.tm_mday,
-                 localized_text->months[adjustedTime.tm_mon]);
+                 localized_text->short_months[adjustedTime.tm_mon]);
     } else if (iWant == "time") {
-        snprintf(formatted, sizeof(formatted), "%02d:%02d",
-                 adjustedTime.tm_hour,
-                 adjustedTime.tm_min);
+        halo_format_local_time(formatted, sizeof(formatted), adjustedTime.tm_hour, adjustedTime.tm_min);
     } else {
-        snprintf(formatted, sizeof(formatted), "%s %d %s, %02d:%02d",
+        char timestr[24];
+        halo_format_local_time(timestr, sizeof(timestr), adjustedTime.tm_hour, adjustedTime.tm_min);
+        snprintf(formatted, sizeof(formatted), "%s %d %s, %s",
                  localized_text->short_days[adjustedTime.tm_wday],
                  adjustedTime.tm_mday,
-                 localized_text->months[adjustedTime.tm_mon],
-                 adjustedTime.tm_hour,
-                 adjustedTime.tm_min);
+                 localized_text->short_months[adjustedTime.tm_mon],
+                 timestr);
     }
 
     return formatted;
 }
 
-// Calls NTP Server to update internal clock
+// Calls NTP Server to update internal clock; refreshes timezone offset only in auto mode
 void update_internal_clock() {
-  UTCoffset = (long) getUtcOffsetInSeconds();
+  if (timezoneOverrideActive) {
+    applyStoredTimezoneOffset();
+  } else {
+    UTCoffset = (long)getUtcOffsetInSeconds();
+  }
   configTime(0, 0, "pool.ntp.org");
   Serial.println("[Utils.h] Internal clock updated via NTP");
 }
@@ -254,8 +277,7 @@ void update_ui(lv_timer_t *timer) {
 
   if (adjustedTime.tm_hour == 2 && adjustedTime.tm_min % 60 == 0) update_internal_clock();
   Serial.println("[Utils.h] Updating Clock and shit");
-  if (racetab_labels.clock) lv_label_set_text_fmt(racetab_labels.clock, "%02d:%02d", adjustedTime.tm_hour, adjustedTime.tm_min);
-  if (racetab_labels.date) lv_label_set_text_fmt(racetab_labels.date, "%s %d, %s", localized_text->short_days[adjustedTime.tm_wday], adjustedTime.tm_mday, localized_text->months[adjustedTime.tm_mon]);
+  if (racetab_labels.date) lv_label_set_text_fmt(racetab_labels.date, "%s %d, %s", localized_text->short_days[adjustedTime.tm_wday], adjustedTime.tm_mday, localized_text->short_months[adjustedTime.tm_mon]);
   if (racetab_labels.race_name) lv_label_set_text_fmt(racetab_labels.race_name, "%s", next_race.raceName.c_str());
 
   if (timezoneRoller.hours && lv_obj_is_valid(timezoneRoller.hours) && 
@@ -265,14 +287,21 @@ void update_ui(lv_timer_t *timer) {
   }
 
   create_or_reload_race_sessions();
+
+  char clkbuf[20];
+  halo_format_local_time(clkbuf, sizeof(clkbuf), adjustedTime.tm_hour, adjustedTime.tm_min);
+  if (racetab_labels.clock) lv_label_set_text(racetab_labels.clock, clkbuf);
+
   Serial.println("[Utils.h] Race Sessions Updated");
 
   // NIGHT MODE
   if (nightModeActive) {
     if (adjustedTime.tm_hour == nightModeTimes.start_hours && adjustedTime.tm_min == nightModeTimes.start_minutes) {
-      adjustBrightness(night_brightness);
+      endNightDisplayTempWake();
+      applyNightModeBrightness();
     }
     if (adjustedTime.tm_hour == nightModeTimes.stop_hours && adjustedTime.tm_min == nightModeTimes.stop_minutes) {
+      endNightDisplayTempWake();
       adjustBrightness(brightness);
     }
   }
@@ -298,11 +327,10 @@ void force_update_ui() {
 
   if (adjustedTime.tm_hour == 2 && adjustedTime.tm_min % 60 == 0) update_internal_clock();
   Serial.println("[Utils.h] Updating Clock and shit");
-  if (racetab_labels.clock) lv_label_set_text_fmt(racetab_labels.clock, "%02d:%02d", adjustedTime.tm_hour, adjustedTime.tm_min);
-  if (racetab_labels.date) lv_label_set_text_fmt(racetab_labels.date, "%s %d, %s", localized_text->short_days[adjustedTime.tm_wday], adjustedTime.tm_mday, localized_text->months[adjustedTime.tm_mon]);
+  if (racetab_labels.date) lv_label_set_text_fmt(racetab_labels.date, "%s %d, %s", localized_text->short_days[adjustedTime.tm_wday], adjustedTime.tm_mday, localized_text->short_months[adjustedTime.tm_mon]);
   if (racetab_labels.race_name) lv_label_set_text_fmt(racetab_labels.race_name, "%s", next_race.raceName.c_str());
 
-  if (timezoneRoller.hours && lv_obj_is_valid(timezoneRoller.hours) && 
+  if (timezoneRoller.hours && lv_obj_is_valid(timezoneRoller.hours) &&
         !lv_obj_has_state(timezoneRoller.hours, LV_STATE_PRESSED) &&
         !lv_obj_has_state(timezoneRoller.hours, LV_STATE_FOCUSED)) {
       lv_roller_set_selected(timezoneRoller.hours, adjustedTime.tm_hour, LV_ANIM_OFF);
@@ -310,14 +338,21 @@ void force_update_ui() {
   
   Serial.println("[Utils.h] Updating Race Sessions");
   create_or_reload_race_sessions( true );
+
+  char clkbuf[20];
+  halo_format_local_time(clkbuf, sizeof(clkbuf), adjustedTime.tm_hour, adjustedTime.tm_min);
+  if (racetab_labels.clock) lv_label_set_text(racetab_labels.clock, clkbuf);
+
   Serial.println("[Utils.h] Race Sessions Updated");
 
   // NIGHT MODE
   if (nightModeActive) {
     if (adjustedTime.tm_hour == nightModeTimes.start_hours && adjustedTime.tm_min == nightModeTimes.start_minutes) {
-      adjustBrightness(night_brightness);
+      endNightDisplayTempWake();
+      applyNightModeBrightness();
     }
     if (adjustedTime.tm_hour == nightModeTimes.stop_hours && adjustedTime.tm_min == nightModeTimes.stop_minutes) {
+      endNightDisplayTempWake();
       adjustBrightness(brightness);
     }
   }
@@ -370,4 +405,17 @@ void halo_set_switch_state(lv_obj_t* switch_obj, bool state) {
     } else {
         lv_obj_clear_state(switch_obj, LV_STATE_CHECKED);
     }
+}
+
+/** Settings tab: denser layout — slightly smaller toggles (default theme is built for ~50×28). */
+static inline void halo_style_settings_switch(lv_obj_t *sw) {
+    lv_obj_set_size(sw, 40, 22);
+}
+
+/** Settings tab: thinner horizontal sliders so rows stay visually lighter. */
+static inline void halo_style_settings_slider(lv_obj_t *slider) {
+    lv_obj_set_style_height(slider, 11, LV_PART_MAIN);
+    lv_obj_set_style_height(slider, 11, LV_PART_INDICATOR);
+    lv_obj_set_style_width(slider, 14, LV_PART_KNOB);
+    lv_obj_set_style_height(slider, 14, LV_PART_KNOB);
 }

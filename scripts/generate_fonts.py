@@ -37,6 +37,8 @@ ICON_RANGES = [
 
 FULL_TEXT_RANGES = "32-126,160-383,8364"
 RSS_EXTRA_CHARS = "“”„’‘–—…•«»‹›"
+# Code points referenced via \\xHH in C sources or otherwise not picked up by string scanning.
+EXTRA_CODEPOINTS = frozenset({0x00B0})  # U+00B0 DEGREE SIGN (e.g. °C / °F in UI)
 
 
 def parse_args() -> argparse.Namespace:
@@ -137,6 +139,8 @@ def build_lean_text_ranges(project_root: Path) -> str:
     for ch in RSS_EXTRA_CHARS:
         cps.add(ord(ch))
 
+    cps.update(EXTRA_CODEPOINTS)
+
     return _to_compact_ranges(sorted(cps))
 
 
@@ -162,6 +166,45 @@ def run_font_conv(
 
     print(f"[fonts] Generating {out_file.name} ...")
     subprocess.run(command, shell=True, check=True, cwd=str(project_root))
+    _restore_lvgl_font_fallback(out_file)
+    _normalize_lvgl_font_includes(out_file)
+
+
+def _normalize_lvgl_font_includes(out_file: Path) -> None:
+    """Arduino LVGL uses flat lvgl.h; lv_font_conv omits __has_include guard used by other project fonts."""
+    text = out_file.read_text(encoding="utf-8")
+    old = (
+        "#ifdef LV_LVGL_H_INCLUDE_SIMPLE\n"
+        "#include \"lvgl.h\"\n"
+        "#else\n"
+        "#include \"lvgl/lvgl.h\"\n"
+        "#endif\n"
+    )
+    new = (
+        "#ifdef __has_include\n"
+        "    #if __has_include(\"lvgl.h\")\n"
+        "        #ifndef LV_LVGL_H_INCLUDE_SIMPLE\n"
+        "            #define LV_LVGL_H_INCLUDE_SIMPLE\n"
+        "        #endif\n"
+        "    #endif\n"
+        "#endif\n\n"
+        "#ifdef LV_LVGL_H_INCLUDE_SIMPLE\n"
+        "    #include \"lvgl.h\"\n"
+        "#else\n"
+        "    #include \"lvgl/lvgl.h\"\n"
+        "#endif\n"
+    )
+    if old in text:
+        out_file.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+
+def _restore_lvgl_font_fallback(out_file: Path) -> None:
+    """lv_font_conv leaves .fallback = NULL; match other project fonts (Dejavu)."""
+    text = out_file.read_text(encoding="utf-8")
+    old = "    .fallback = NULL,\n"
+    new = "    .fallback = &lv_font_dejavu_16_persian_hebrew,\n"
+    if old in text:
+        out_file.write_text(text.replace(old, new, 1), encoding="utf-8")
 
 
 def print_missing_font_help(project_root: Path, missing_paths: list[Path]) -> None:

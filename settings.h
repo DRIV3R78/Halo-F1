@@ -1,4 +1,23 @@
-#define SETTINGS_VERSION 4
+#define SETTINGS_VERSION 5
+
+/** On-disk layout for firmware before clock/units preferences (SETTINGS_VERSION 4). */
+struct SavedSettingsV4 {
+    uint8_t  version;
+    uint8_t  brightness;
+    uint8_t  night_brightness;
+    bool     nightModeActive;
+    uint8_t  nightStart_h;
+    uint8_t  nightStart_m;
+    uint8_t  nightStop_h;
+    uint8_t  nightStop_m;
+    bool     noSpoilerModeActive;
+    bool     timezoneOverrideActive;
+    int32_t  UTCoffsetHours;
+    uint8_t  languageIndex;
+    uint8_t  newsFeedIndex;
+    bool     newsPulseEnabled;
+    bool     standingsAutoScrollEnabled;
+};
 
 struct SavedSettingsV1 {
     uint8_t  version;
@@ -47,6 +66,8 @@ struct SavedSettings {
     uint8_t  newsFeedIndex;
     bool     newsPulseEnabled;
     bool     standingsAutoScrollEnabled;
+    bool     use24hClock;
+    bool     useFahrenheit;
 };
 
 struct SavedSettingsV3 {
@@ -118,6 +139,8 @@ void saveSettings() {
     s.newsFeedIndex        = selectedNewsFeed;
     s.newsPulseEnabled     = newsPulseEnabled;
     s.standingsAutoScrollEnabled = standingsAutoScrollEnabled;
+    s.use24hClock          = use24hClock;
+    s.useFahrenheit        = useFahrenheit;
 
     Serial.println("[Preferences] Saving settings to flash...");
 
@@ -174,7 +197,26 @@ void loadSettings() {
         applyLanguageAndFeed(s.languageIndex, s.newsFeedIndex);
         newsPulseEnabled = s.newsPulseEnabled;
         standingsAutoScrollEnabled = s.standingsAutoScrollEnabled;
+        use24hClock        = s.use24hClock;
+        useFahrenheit      = s.useFahrenheit;
         Serial.println("[Preferences] Settings loaded from flash.");
+        return;
+    }
+
+    if (rawVersion == 4 && len >= sizeof(SavedSettingsV4)) {
+        SavedSettingsV4 s{};
+        memcpy(&s, raw, sizeof(SavedSettingsV4));
+        applyLoadedSettingsCommon(
+            s.brightness, s.night_brightness, s.nightModeActive,
+            s.nightStart_h, s.nightStart_m, s.nightStop_h, s.nightStop_m,
+            s.noSpoilerModeActive, s.timezoneOverrideActive, s.UTCoffsetHours
+        );
+        applyLanguageAndFeed(s.languageIndex, s.newsFeedIndex);
+        newsPulseEnabled = s.newsPulseEnabled;
+        standingsAutoScrollEnabled = s.standingsAutoScrollEnabled;
+        use24hClock        = true;
+        useFahrenheit      = false;
+        Serial.println("[Preferences] Loaded legacy v4 settings from flash.");
         return;
     }
 
@@ -189,6 +231,8 @@ void loadSettings() {
         applyLanguageAndFeed(s.languageIndex, s.newsFeedIndex);
         newsPulseEnabled = s.newsPulseEnabled;
         standingsAutoScrollEnabled = false;
+        use24hClock        = true;
+        useFahrenheit      = false;
         Serial.println("[Preferences] Loaded legacy v3 settings from flash.");
         return;
     }
@@ -204,6 +248,8 @@ void loadSettings() {
         applyLanguageAndFeed(s.languageIndex, s.newsFeedIndex);
         newsPulseEnabled = true;
         standingsAutoScrollEnabled = false;
+        use24hClock        = true;
+        useFahrenheit      = false;
         Serial.println("[Preferences] Loaded legacy v2 settings from flash.");
         return;
     }
@@ -219,6 +265,8 @@ void loadSettings() {
         applyLanguageAndFeed(s.languageIndex, 0);
         newsPulseEnabled = true;
         standingsAutoScrollEnabled = false;
+        use24hClock        = true;
+        useFahrenheit      = false;
         Serial.println("[Preferences] Loaded legacy v1 settings from flash.");
         return;
     }
