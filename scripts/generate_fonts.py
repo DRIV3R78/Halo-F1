@@ -17,6 +17,7 @@ English, Italian, Spanish, French, Dutch, German, Portuguese, Norwegian, Polish.
 from __future__ import annotations
 
 import argparse
+import codecs
 import re
 import subprocess
 import sys
@@ -91,17 +92,18 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _decode_c_string_literal(raw: str) -> str:
+    """Decode C-style escapes; hex bytes are often UTF-8 (e.g. \\xC2\\xB0 → °)."""
+    decoded = codecs.decode(raw, "unicode_escape")
+    try:
+        return decoded.encode("latin-1").decode("utf-8")
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        return decoded
+
+
 def _extract_c_string_literals(content: str) -> list[str]:
     matches = re.findall(r'"((?:\\.|[^"\\])*)"', content)
-    result: list[str] = []
-    for m in matches:
-        s = m.replace(r"\\", "\\")
-        s = s.replace(r"\"", "\"")
-        s = s.replace(r"\n", "\n")
-        s = s.replace(r"\r", "\r")
-        s = s.replace(r"\t", "\t")
-        result.append(s)
-    return result
+    return [_decode_c_string_literal(m) for m in matches]
 
 
 def _to_compact_ranges(codepoints: list[int]) -> str:
