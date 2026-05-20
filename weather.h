@@ -19,7 +19,7 @@
 // ── Per-session weather data ────────────────────────────────────────────────
 struct SessionWeather {
     uint8_t  wmo_code;  // WMO weather interpretation code (0 = unknown)
-    int8_t   temp_c;    // Temperature in °C at session start hour
+    float    temp_c;    // Temperature in °C at session start hour
     bool     valid;     // true = data was successfully fetched for this slot
 };
 
@@ -223,13 +223,13 @@ bool fetchWeatherForRace(NextRaceInfo& race) {
         for (int h = 0; h < total_hours; h++) {
             if (strcmp(hour_strs[h], target_cstr) == 0) {
                 session_weather[s].wmo_code = (uint8_t)codes[h].as<int>();
-                session_weather[s].temp_c   = (int8_t) temps[h].as<float>();
+                session_weather[s].temp_c   = temps[h].as<float>();
                 session_weather[s].valid    = true;
-                Serial.printf("[Weather] %s → %s  WMO=%d  %d°C\n",
+                Serial.printf("[Weather] %s → %s  WMO=%d  %.1f°C\n",
                     race.sessions[s].name.c_str(),
                     target_cstr,
                     session_weather[s].wmo_code,
-                    (int)session_weather[s].temp_c);
+                    session_weather[s].temp_c);
                 break;
             }
         }

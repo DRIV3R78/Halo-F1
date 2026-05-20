@@ -39,9 +39,9 @@ static inline void halo_format_local_time(char *buf, size_t sz, int hour24, int 
 }
 
 /** Weather badge: stored °C from API → display value for °C or °F. */
-static inline int halo_display_temp_from_c(int8_t temp_c) {
-    if (!useFahrenheit) return (int)temp_c;
-    return (int)roundf((float)temp_c * 9.0f / 5.0f + 32.0f);
+static inline int halo_display_temp_from_c(float temp_c) {
+    if (!useFahrenheit) return (int)roundf(temp_c);
+    return (int)roundf(temp_c * 9.0f / 5.0f + 32.0f);
 }
 
 // Formats Lap Time from seconds to M:SS.sss
