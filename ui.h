@@ -150,8 +150,9 @@ static void night_wake_timer_cb(lv_timer_t * timer) {
 void endNightDisplayTempWake() {
   nightDisplayTempWake = false;
   if (night_wake_timer) {
-    lv_timer_delete(night_wake_timer);
+    lv_timer_t * timer = night_wake_timer;
     night_wake_timer = nullptr;
+    lv_timer_delete(timer);
   }
 }
 
