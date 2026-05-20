@@ -139,21 +139,23 @@ void adjustBrightness(uint8_t new_brightness) {
 }
 
 static void night_wake_timer_cb(lv_timer_t * timer) {
+  (void)timer;
   nightDisplayTempWake = false;
   if (nightModeActive && isNightTime()) {
     adjustBrightness(night_brightness);
   }
+
+  lv_timer_t * t = night_wake_timer;
   night_wake_timer = nullptr;
-  lv_timer_delete(timer);
+  if (t) lv_timer_delete(t);
 }
 
 void endNightDisplayTempWake() {
   nightDisplayTempWake = false;
-  if (night_wake_timer) {
-    lv_timer_t * timer = night_wake_timer;
-    night_wake_timer = nullptr;
-    lv_timer_delete(timer);
-  }
+
+  lv_timer_t * timer = night_wake_timer;
+  night_wake_timer = nullptr;
+  if (timer) lv_timer_delete(timer);
 }
 
 void applyNightModeBrightness() {
@@ -167,10 +169,12 @@ void handleNightModeTouchWake() {
   nightDisplayTempWake = true;
   adjustBrightness(NIGHT_TOUCH_WAKE_BRIGHTNESS);
 
-  if (!night_wake_timer) {
-    night_wake_timer = lv_timer_create(night_wake_timer_cb, NIGHT_TOUCH_WAKE_MS, NULL);
+  lv_timer_t * timer = night_wake_timer;
+  if (!timer) {
+    timer = lv_timer_create(night_wake_timer_cb, NIGHT_TOUCH_WAKE_MS, NULL);
+    night_wake_timer = timer;
   }
-  lv_timer_reset(night_wake_timer);
+  if (timer) lv_timer_reset(timer);
 }
 
 static void language_selection_event_handler(lv_event_t * e) {
