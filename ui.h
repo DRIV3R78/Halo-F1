@@ -139,19 +139,13 @@ void adjustBrightness(uint8_t new_brightness) {
 }
 
 static void night_wake_timer_cb(lv_timer_t * timer) {
-  if (!timer) return;
+  if (!timer || timer != night_wake_timer) return;
 
-  if (timer == night_wake_timer) {
-    nightDisplayTempWake = false;
-    night_wake_timer = nullptr;
-    if (nightModeActive && isNightTime()) {
-      adjustBrightness(night_brightness);
-    }
-    lv_timer_delete(timer);
-    return;
+  nightDisplayTempWake = false;
+  night_wake_timer = nullptr;
+  if (nightModeActive && isNightTime()) {
+    adjustBrightness(night_brightness);
   }
-
-  // Stale callback: global already points elsewhere or was cleared — delete only this instance.
   lv_timer_delete(timer);
 }
 
