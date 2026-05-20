@@ -139,11 +139,12 @@ void adjustBrightness(uint8_t new_brightness) {
 }
 
 static void night_wake_timer_cb(lv_timer_t * timer) {
-  (void)timer;
   nightDisplayTempWake = false;
   if (nightModeActive && isNightTime()) {
     adjustBrightness(night_brightness);
   }
+  night_wake_timer = nullptr;
+  lv_timer_delete(timer);
 }
 
 void endNightDisplayTempWake() {
