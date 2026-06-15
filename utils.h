@@ -69,10 +69,12 @@ int64_t getUtcOffsetInSeconds() {
   }
 
   HTTPClient client;
+  WiFiClientSecure secureClient;
+  secureClient.setInsecure();
 
   //debug->println("Getting local time zone");
   std::string url = "https://ipapi.co/utc_offset/";
-  client.begin(url.c_str());
+  client.begin(secureClient, url.c_str());
   int statusCode = client.GET();
   //debug->println("Status code: %i", statusCode);
   if (statusCode != 200) {
@@ -253,29 +255,55 @@ void update_internal_clock() {
     UTCoffset = (long)getUtcOffsetInSeconds();
   }
   configTime(0, 0, "pool.ntp.org");
-  Serial.println("[Utils.h] Internal clock updated via NTP");
+
+  struct tm timeinfo;
+  for (int i = 0; i < 20; i++) {
+    if (getLocalTime(&timeinfo)) {
+      Serial.println("[Utils.h] Internal clock updated via NTP");
+      return;
+    }
+    delay(500);
+  }
+  Serial.println("[Utils.h] NTP sync pending — using RTC until SNTP completes");
+}
+
+/** Read NTP UTC, apply UTCoffset, return local wall time. */
+static bool halo_get_adjusted_local_time(struct tm &adjustedTime) {
+  struct tm timeinfo;
+
+  if (!getLocalTime(&timeinfo)) return false;
+
+  time_t timeEpoch = timegm(&timeinfo);
+  if (timeEpoch <= 1000) return false;
+
+  timeEpoch += UTCoffset;
+  gmtime_r(&timeEpoch, &adjustedTime);
+  return true;
+}
+
+/** Lightweight clock refresh — safe to call every second. */
+static void halo_update_clock_label(const struct tm &adjustedTime) {
+  char clkbuf[20];
+  halo_format_local_time(clkbuf, sizeof(clkbuf), adjustedTime.tm_hour, adjustedTime.tm_min);
+  if (racetab_labels.clock) lv_label_set_text(racetab_labels.clock, clkbuf);
 }
 
 // Runs with lvgl timer, updates internal clock with offset, updates UI display of clock, date, race name and sessions
 void update_ui(lv_timer_t *timer) {
-  struct tm timeinfo;
-  
-  if (!getLocalTime(&timeinfo)) return;
-
-  time_t timeEpoch = timegm(&timeinfo);
-
-  if (timeEpoch <= 1000) return;
-
-  // Apply offset in seconds
-  timeEpoch += UTCoffset;
-  //timeEpoch += 60; //time correction (clock is dragging a tiny bit)
-
-
-  // Convert back to local tm with rollover handled
   struct tm adjustedTime;
-  gmtime_r(&timeEpoch, &adjustedTime);
 
-  if (adjustedTime.tm_hour == 2 && adjustedTime.tm_min % 60 == 0) update_internal_clock();
+  if (!halo_get_adjusted_local_time(adjustedTime)) return;
+
+  // Clock label: refresh every timer tick (1 s) so display stays within ~1 s of real time.
+  halo_update_clock_label(adjustedTime);
+
+  // Heavy UI work (sessions, night mode, NTP maintenance): once per minute, or on manual calls.
+  static uint8_t full_refresh_ticks = 0;
+  const bool full_refresh = (timer == nullptr) || (++full_refresh_ticks >= 60);
+  if (!full_refresh) return;
+  full_refresh_ticks = 0;
+
+  if (adjustedTime.tm_hour == 2 && adjustedTime.tm_min == 0) update_internal_clock();
   Serial.println("[Utils.h] Updating Clock and shit");
   if (racetab_labels.date) lv_label_set_text_fmt(racetab_labels.date, "%s %d, %s", localized_text->short_days[adjustedTime.tm_wday], adjustedTime.tm_mday, localized_text->short_months[adjustedTime.tm_mon]);
   if (racetab_labels.race_name) lv_label_set_text_fmt(racetab_labels.race_name, "%s", next_race.raceName.c_str());
@@ -287,10 +315,6 @@ void update_ui(lv_timer_t *timer) {
   }
 
   create_or_reload_race_sessions();
-
-  char clkbuf[20];
-  halo_format_local_time(clkbuf, sizeof(clkbuf), adjustedTime.tm_hour, adjustedTime.tm_min);
-  if (racetab_labels.clock) lv_label_set_text(racetab_labels.clock, clkbuf);
 
   Serial.println("[Utils.h] Race Sessions Updated");
 
@@ -308,24 +332,11 @@ void update_ui(lv_timer_t *timer) {
 }
 
 void force_update_ui() {
-  struct tm timeinfo;
-  
-  if (!getLocalTime(&timeinfo)) return;
-
-  time_t timeEpoch = timegm(&timeinfo);
-
-  if (timeEpoch <= 1000) return;
-
-  // Apply offset in seconds
-  timeEpoch += UTCoffset;
-  //timeEpoch += 60; //time correction (clock is dragging a tiny bit)
-
-
-  // Convert back to local tm with rollover handled
   struct tm adjustedTime;
-  gmtime_r(&timeEpoch, &adjustedTime);
+  
+  if (!halo_get_adjusted_local_time(adjustedTime)) return;
 
-  if (adjustedTime.tm_hour == 2 && adjustedTime.tm_min % 60 == 0) update_internal_clock();
+  if (adjustedTime.tm_hour == 2 && adjustedTime.tm_min == 0) update_internal_clock();
   Serial.println("[Utils.h] Updating Clock and shit");
   if (racetab_labels.date) lv_label_set_text_fmt(racetab_labels.date, "%s %d, %s", localized_text->short_days[adjustedTime.tm_wday], adjustedTime.tm_mday, localized_text->short_months[adjustedTime.tm_mon]);
   if (racetab_labels.race_name) lv_label_set_text_fmt(racetab_labels.race_name, "%s", next_race.raceName.c_str());
@@ -339,9 +350,7 @@ void force_update_ui() {
   Serial.println("[Utils.h] Updating Race Sessions");
   create_or_reload_race_sessions( true );
 
-  char clkbuf[20];
-  halo_format_local_time(clkbuf, sizeof(clkbuf), adjustedTime.tm_hour, adjustedTime.tm_min);
-  if (racetab_labels.clock) lv_label_set_text(racetab_labels.clock, clkbuf);
+  halo_update_clock_label(adjustedTime);
 
   Serial.println("[Utils.h] Race Sessions Updated");
 
