@@ -137,6 +137,41 @@ static String normalizeNewsText(const String &text) {
   return out;
 }
 
+// Jolpica/Ergast HTTPS helper — matches the WiFiClientSecure pattern used for OpenF1/RSS.
+static bool jolpicaHttpGetJson(const std::string &url, JsonDocument &doc) {
+  WiFiClientSecure secureClient;
+  secureClient.setInsecure();
+
+  HTTPClient http;
+  http.begin(secureClient, url.c_str());
+  http.setTimeout(15000);
+
+  int statusCode = http.GET();
+  if (statusCode != 200) {
+    Serial.printf("[Jolpica] HTTP %d for %s\n", statusCode, url.c_str());
+    http.end();
+    return false;
+  }
+
+  // Buffer the full body before parsing. Jolpica uses Transfer-Encoding: chunked;
+  // deserializeJson(http.getStream()) can fail with InvalidInput when the client
+  // disconnects before the full payload arrives (seen in device logs).
+  String payload = http.getString();
+  http.end();
+  if (payload.length() == 0) {
+    Serial.printf("[Jolpica] Empty body for %s\n", url.c_str());
+    return false;
+  }
+
+  DeserializationError error = deserializeJson(doc, payload);
+  if (error) {
+    Serial.printf("[Jolpica] JSON error: %s (len=%u)\n", error.c_str(), payload.length());
+    return false;
+  }
+
+  return true;
+}
+
 // Tries once to fetch the latest news
 bool fetchLatestNews(String &title, String &link, String &desc) {
   WiFiClientSecure client;
@@ -453,20 +488,12 @@ bool getLastSessionResults(SessionResults results[DRIVERS_NUMBER]) {
 }
 
 bool fetch_f1_driver_standings() {
-  HTTPClient client;
   JsonDocument doc;
-  DeserializationError error;
-  int statusCode;
   bool preSeasonFallback = false;
 
   // ── Driver Standings ────────────────────────────────────────────────────────
   std::string url = "https://api.jolpi.ca/ergast/f1/current/driverstandings/";
-  client.begin(url.c_str());
-  statusCode = client.GET();
-  if (statusCode != 200) { client.end(); return false; }
-  error = deserializeJson(doc, client.getStream());
-  client.end();
-  if (error) { Serial.printf("[Driver Standings] JSON error: %s\n", error.c_str()); return false; }
+  if (!jolpicaHttpGetJson(url, doc)) return false;
 
   JsonArray driverStandingsLists = doc["MRData"]["StandingsTable"]["StandingsLists"].as<JsonArray>();
 
@@ -507,12 +534,7 @@ bool fetch_f1_driver_standings() {
     // Also populate team_standings here so we don't need to fetch it again later.
     doc.clear();
     url = "https://api.jolpi.ca/ergast/f1/current/constructors/";
-    client.begin(url.c_str());
-    statusCode = client.GET();
-    if (statusCode != 200) { client.end(); return false; }
-    error = deserializeJson(doc, client.getStream());
-    client.end();
-    if (error) { Serial.printf("[Driver Standings] JSON error: %s\n", error.c_str()); return false; }
+    if (!jolpicaHttpGetJson(url, doc)) return false;
 
     JsonArray constructors = doc["MRData"]["ConstructorTable"]["Constructors"].as<JsonArray>();
     current_season.team_count = min((int)constructors.size(), 12);
@@ -532,9 +554,7 @@ bool fetch_f1_driver_standings() {
       JsonDocument ctorDriverDoc;
       std::string  ctorDriverUrl = "https://api.jolpi.ca/ergast/f1/current/constructors/"
                                    + std::string(ctorId.c_str()) + "/drivers/";
-      client.begin(ctorDriverUrl.c_str());
-      if (client.GET() == 200) {
-        deserializeJson(ctorDriverDoc, client.getStream());
+      if (jolpicaHttpGetJson(ctorDriverUrl, ctorDriverDoc)) {
         JsonArray ctorDrivers = ctorDriverDoc["MRData"]["DriverTable"]["Drivers"].as<JsonArray>();
         for (JsonObject d : ctorDrivers) {
           if (mapSize < 30) {
@@ -545,18 +565,12 @@ bool fetch_f1_driver_standings() {
           }
         }
       }
-      client.end();
     }
 
     // Step 2: fetch the full driver list and resolve constructor via the map
     doc.clear();
     url = "https://api.jolpi.ca/ergast/f1/current/drivers/";
-    client.begin(url.c_str());
-    statusCode = client.GET();
-    if (statusCode != 200) { client.end(); return false; }
-    error = deserializeJson(doc, client.getStream());
-    client.end();
-    if (error) { Serial.printf("[Driver Standings] JSON error: %s\n", error.c_str()); return false; }
+    if (!jolpicaHttpGetJson(url, doc)) return false;
 
     current_season.season = doc["MRData"]["DriverTable"]["season"].as<String>();
     current_season.round  = "0";
@@ -591,12 +605,7 @@ bool fetch_f1_driver_standings() {
   } else {
     doc.clear();
     url = "https://api.jolpi.ca/ergast/f1/current/constructorstandings/";
-    client.begin(url.c_str());
-    statusCode = client.GET();
-    if (statusCode != 200) { client.end(); return false; }
-    error = deserializeJson(doc, client.getStream());
-    client.end();
-    if (error) { Serial.printf("[Constructor Standings] JSON error: %s\n", error.c_str()); return false; }
+    if (!jolpicaHttpGetJson(url, doc)) return false;
 
     JsonArray constructorStandingsLists = doc["MRData"]["StandingsTable"]["StandingsLists"].as<JsonArray>();
 
@@ -617,12 +626,7 @@ bool fetch_f1_driver_standings() {
       // ── Fallback (edge case: driver standings exist but constructor don't) ─
       doc.clear();
       url = "https://api.jolpi.ca/ergast/f1/current/constructors/";
-      client.begin(url.c_str());
-      statusCode = client.GET();
-      if (statusCode != 200) { client.end(); return false; }
-      error = deserializeJson(doc, client.getStream());
-      client.end();
-      if (error) { Serial.printf("[Constructor Standings] JSON error: %s\n", error.c_str()); return false; }
+      if (!jolpicaHttpGetJson(url, doc)) return false;
       JsonArray constructors = doc["MRData"]["ConstructorTable"]["Constructors"].as<JsonArray>();
       current_season.team_count = constructors.size();
       for (size_t i = 0; i < current_season.team_count && i < 12; i++) {
@@ -642,16 +646,20 @@ bool fetch_f1_driver_standings() {
 
 // Fetch next race infos and loads them into the given "NextRaceInfo" type struct or returns false on fail
 bool getNextRaceInfo(NextRaceInfo &info) {
+    WiFiClientSecure secureClient;
+    secureClient.setInsecure();
+
     HTTPClient http;
-    //http.begin("https://api.jolpi.ca/ergast/f1/2026/2/races/"); //sprint weekend for testing purposes
-    http.begin("https://api.jolpi.ca/ergast/f1/current/next/races/");
+    //http.begin(secureClient, "https://api.jolpi.ca/ergast/f1/2026/2/races/"); //sprint weekend for testing purposes
+    http.begin(secureClient, "https://api.jolpi.ca/ergast/f1/current/next/races/");
+    http.setTimeout(15000);
     int httpCode = http.GET();
 
     if (httpCode == HTTP_CODE_MOVED_PERMANENTLY || httpCode == HTTP_CODE_FOUND) {
       String newUrl = http.getLocation(); // this gives the "Location" header from the redirect
       Serial.println("Redirect to: " + newUrl);
       http.end(); // close the previous connection
-      http.begin(newUrl);
+      http.begin(secureClient, newUrl);
       httpCode = http.GET();
     }
 
@@ -712,8 +720,9 @@ bool getNextRaceInfo(NextRaceInfo &info) {
 
 // Runs with a lvgl timer, fetches driver standings and next race infos (baseline F1 APIs)
 void update_f1_api(lv_timer_t *timer) {
-  if (!fetch_f1_driver_standings()) {
-    return;
+  bool standings_ok = fetch_f1_driver_standings();
+  if (!standings_ok) {
+    Serial.println("[F1 API] Driver standings fetch failed — still refreshing next race info");
   }
 
   if (getNextRaceInfo(next_race)) {    
@@ -842,7 +851,7 @@ void setupWiFiManager(bool forceConfig) {
       update_f1_api(nullptr);
       update_ui(nullptr);
       create_or_reload_news_ui(nullptr);
-      if (!clock_timer) clock_timer = lv_timer_create(update_ui, 60000, NULL);
+      if (!clock_timer) clock_timer = lv_timer_create(update_ui, 1000, NULL);
       if (!f1_api_timer) f1_api_timer = lv_timer_create(update_f1_api, 3600000, NULL);
       if (!news_timer) news_timer = lv_timer_create(create_or_reload_news_ui, 5*60000, NULL);
       if (!statistics_timer) statistics_timer = lv_timer_create(sendStatisticData, 59*60000, NULL);
@@ -871,7 +880,7 @@ void setupWiFiManager(bool forceConfig) {
       update_f1_api(nullptr);
       update_ui(nullptr);
       create_or_reload_news_ui(nullptr);
-      if (!clock_timer) clock_timer = lv_timer_create(update_ui, 60000, NULL);
+      if (!clock_timer) clock_timer = lv_timer_create(update_ui, 1000, NULL);
       if (!f1_api_timer) f1_api_timer = lv_timer_create(update_f1_api, 3600000, NULL);
       if (!news_timer) news_timer = lv_timer_create(create_or_reload_news_ui, 5*60000, NULL);
       if (!statistics_timer) statistics_timer = lv_timer_create(sendStatisticData, 59*60000, NULL);
