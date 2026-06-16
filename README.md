@@ -25,8 +25,8 @@ Firmware versioning for this fork follows the base version plus a fork suffix.
 
 Examples:
 
-- Capacitive build: `1.2.3-fork.2`
-- Resistive build: `1.2.3-R-fork.2`
+- Capacitive build: `1.2.3-fork.3`
+- Resistive build: `1.2.3-R-fork.3`
 
 Single source of truth:
 
