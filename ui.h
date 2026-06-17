@@ -3,7 +3,6 @@ void create_or_reload_settings_ui();
 void update_driver_standings_ui();
 bool getLastSessionResults(SessionResults results[DRIVERS_NUMBER]);
 bool fetch_f1_driver_standings();
-bool getNextRaceInfo(NextRaceInfo &info);
 static void populate_standings(lv_obj_t * container, int offset);
 static void populate_all_standings(lv_obj_t * container);
 static void start_standings_display_cycle(lv_obj_t * container);
@@ -348,7 +347,7 @@ static void night_mode_roller_event_handler(lv_event_t * e) {
 // Currently unused, but ready for implementation
 static void reload_clock_event_handler(lv_event_t * e) {
   lv_event_code_t code = lv_event_get_code(e);
-  update_internal_clock();
+  update_internal_clock(true);
   force_update_ui();
   //update_ui(nullptr);
 
@@ -1219,9 +1218,6 @@ void create_or_reload_race_sessions(bool force_reload) {
   RaceSession session;
   RaceSession last_session;
 
-  if (!next_race.sessionCount) {
-    getNextRaceInfo(next_race);
-  }
   if (!next_race.sessionCount) return;
 
   // ── Row width: same 90 % of screen that the old single labels used ─────────
