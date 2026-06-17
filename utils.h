@@ -247,14 +247,20 @@ char* getSessionDateTimeFormatted(String utcSessionDate, String utcSessionTime, 
     return formatted;
 }
 
-// Calls NTP Server to update internal clock; refreshes timezone offset only in auto mode
-void update_internal_clock() {
+// Calls NTP Server to update internal clock; refreshes timezone offset only in auto mode.
+// waitForSync: block up to 10s for SNTP — use only during setup, never from LVGL timers.
+void update_internal_clock(bool waitForSync = false) {
   if (timezoneOverrideActive) {
     applyStoredTimezoneOffset();
   } else {
     UTCoffset = (long)getUtcOffsetInSeconds();
   }
   configTime(0, 0, "pool.ntp.org");
+
+  if (!waitForSync) {
+    Serial.println("[Utils.h] NTP sync requested (background)");
+    return;
+  }
 
   struct tm timeinfo;
   for (int i = 0; i < 20; i++) {
@@ -267,13 +273,9 @@ void update_internal_clock() {
   Serial.println("[Utils.h] NTP sync pending — using RTC until SNTP completes");
 }
 
-/** Read NTP UTC, apply UTCoffset, return local wall time. */
+/** Read UTC epoch (configTime offset 0), apply UTCoffset, return local wall time. */
 static bool halo_get_adjusted_local_time(struct tm &adjustedTime) {
-  struct tm timeinfo;
-
-  if (!getLocalTime(&timeinfo)) return false;
-
-  time_t timeEpoch = timegm(&timeinfo);
+  time_t timeEpoch = time(nullptr);
   if (timeEpoch <= 1000) return false;
 
   timeEpoch += UTCoffset;
@@ -374,17 +376,11 @@ bool hasRaceWeekendStarted() {
 
 
 bool isNightTime() {
-  struct tm timeinfo;
-  if (!getLocalTime(&timeinfo)) return false;
-
-  time_t timeEpoch = timegm(&timeinfo);
-
+  time_t timeEpoch = time(nullptr);
   if (timeEpoch <= 1000) return false;
 
-  // Apply offset in seconds
   timeEpoch += UTCoffset;
 
-  // Convert back to local tm
   struct tm adjustedTime;
   gmtime_r(&timeEpoch, &adjustedTime);
 
