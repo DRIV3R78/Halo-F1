@@ -163,9 +163,11 @@ static bool jolpicaHttpGetJson(const std::string &url, JsonDocument &doc) {
     return false;
   }
 
+  size_t payloadLen = payload.length();
   DeserializationError error = deserializeJson(doc, payload);
+  payload = String(); // release body RAM before caller continues
   if (error) {
-    Serial.printf("[Jolpica] JSON error: %s (len=%u)\n", error.c_str(), payload.length());
+    Serial.printf("[Jolpica] JSON error: %s (len=%u)\n", error.c_str(), (unsigned)payloadLen);
     return false;
   }
 
@@ -652,16 +654,9 @@ bool getNextRaceInfo(NextRaceInfo &info) {
     HTTPClient http;
     //http.begin(secureClient, "https://api.jolpi.ca/ergast/f1/2026/2/races/"); //sprint weekend for testing purposes
     http.begin(secureClient, "https://api.jolpi.ca/ergast/f1/current/next/races/");
+    http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
     http.setTimeout(15000);
     int httpCode = http.GET();
-
-    if (httpCode == HTTP_CODE_MOVED_PERMANENTLY || httpCode == HTTP_CODE_FOUND) {
-      String newUrl = http.getLocation(); // this gives the "Location" header from the redirect
-      Serial.println("Redirect to: " + newUrl);
-      http.end(); // close the previous connection
-      http.begin(secureClient, newUrl);
-      httpCode = http.GET();
-    }
 
     if (httpCode != 200) {
         Serial.println("HTTP Error: " + String(httpCode));
@@ -847,7 +842,7 @@ void setupWiFiManager(bool forceConfig) {
       ESP.restart();
       delay(5000);
     } else {
-      update_internal_clock();
+      update_internal_clock(true);
       update_f1_api(nullptr);
       update_ui(nullptr);
       create_or_reload_news_ui(nullptr);
@@ -876,7 +871,7 @@ void setupWiFiManager(bool forceConfig) {
       ESP.restart();
       delay(5000);
     } else {
-      update_internal_clock();
+      update_internal_clock(true);
       update_f1_api(nullptr);
       update_ui(nullptr);
       create_or_reload_news_ui(nullptr);
